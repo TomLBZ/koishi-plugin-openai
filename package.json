@@ -1,0 +1,37 @@
+{
+  "name": "koishi-plugin-openai",
+  "description": "Calls OpenAI language models for Koishi.js",
+  "private": false,
+  "version": "1.0.0",
+  "author": "TomLBZ <libozhao142857@hotmail.com>",
+  "maintainers": [
+    "TomLBZ <libozhao142857@hotmail.com>"
+  ],
+  "main": "lib/index.js",
+  "typings": "lib/index.d.ts",
+  "files": [
+    "lib",
+    "dist"
+  ],
+  "license": "GNU GPL v3",
+  "scripts": {},
+  "keywords": [
+    "chatbot",
+    "koishi",
+    "plugin",
+    "openai"
+  ],
+  "peerDependencies": {
+    "koishi": "^4.9.2"
+  },
+  "dependencies": {
+    "openai": "^3.0.0"
+  },
+  "koishi": {
+    "description": {
+      "en": "Calls OpenAI language models for Koishi.js",
+      "zh": "为 Koishi.js 调用 OpenAI 语言模型"
+    },
+    "locales": ["zh", "en"]
+  }
+}
