@@ -7,6 +7,10 @@
   "maintainers": [
     "TomLBZ <libozhao142857@hotmail.com>"
   ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/TomLBZ/koishi-plugin-openai.git"
+  },
   "main": "lib/index.js",
   "typings": "lib/index.d.ts",
   "files": [
