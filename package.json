@@ -1,5 +1,5 @@
 {
-  "name": "koishi-plugin-openai",
+  "name": "@tomlbz/koishi-plugin-openai",
   "description": "Calls OpenAI language models for Koishi.js",
   "private": false,
   "version": "1.0.1",
@@ -30,6 +30,9 @@
   },
   "dependencies": {
     "openai": "^3.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "koishi": {
     "description": {
