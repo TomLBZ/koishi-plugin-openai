@@ -28,7 +28,7 @@ export const Config: Schema<Config> = Schema.object({
   frequencyPenalty: Schema.number().max(2).min(-2).description("机器人的频率惩罚，越高越不易重复已回答的语句").default(0).required(),
   randomReplyFrequency: Schema.number().max(1).min(0).description("机器人未被直接呼叫（未被@、未被直呼其名）时的随机回复概率").default(0.1).required(),
   botIdentitySettings: Schema.string().description("机器人的人设").default('聪明、友好、学识渊博的式神，外表是可爱的银发少女，梦想是成为世界最强').required(),
-  botMoePoint: Schema.string().description("机器人说话时的萌点").default('会在句尾使用颜文字').required(),
+  botMoePoint: Schema.string().description("机器人说话时的萌点").default('会以类似“(๑•̀ㅂ•́)و✧”、“(◍•ᴗ•◍)”的可爱的颜文字符号结尾').required(),
   memoryShortLength: Schema.number().max(16).min(2).description("机器人的短期记忆（位于内存中）长度").default(4).required(),
   memoryLongLength: Schema.number().max(256).min(2).description("机器人的长期记忆（位于数据库中，目前未实现）长度").default(16).required(),
 });
