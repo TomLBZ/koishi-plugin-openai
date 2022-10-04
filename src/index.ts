@@ -90,7 +90,7 @@ export function apply(ctx: Context, config: Config) {
         conv.delete(conv.keys().next().value);
       } // remove the oldest messages
       conv.set(session.content, reply);
-      session.send(reply);
+      return reply
     }
     return next();
   })
