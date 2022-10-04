@@ -65,11 +65,9 @@ async function getOpenAIReply(session: Session, config: Config) {
 
 function getReplyCondition(session: Session, config: Config){
   if (session.subtype === 'group') {
-    if (session.parsed.appel || session.content.includes(config.botname)){
-      return true;
-    } else if (Math.random() < config.randomReplyFrequency){
-      return true;
-    }
+    if (session.parsed.appel) return true;
+    if (session.content.includes(config.botname)) return true;
+    if (Math.random() < config.randomReplyFrequency) return true;
     return false;
   } else {
     return true;
