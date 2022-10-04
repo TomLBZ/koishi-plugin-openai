@@ -1,61 +1,63 @@
-import { Context, Schema, Session } from 'koishi'
+import { Context, Schema, Session } from 'koishi';
 import { Configuration, OpenAIApi} from "openai";
 
-export const name = 'openai'
+export const name = 'openai';
 
 export interface Config {
   apikey: string;
   botname: string;
-  language: string;
   model: string;
   ntokens: number;
   temperature: number;
   presencePenalty: number;
   frequencyPenalty: number;
   randomReplyFrequency: number;
+  botIdentitySettings: string;
+  botMoePoint: string;
+  memoryShortLength: number;
+  memoryLongLength: number;
 }
 
 export const Config: Schema<Config> = Schema.object({
-  botname: Schema.string().description("机器人的名字\nName of the bot").default('半灵').required(),
-  apikey: Schema.string().role('secret').description("OpenAI 的 API Key\nThe API Key for OpenAI").required(),
-  language: Schema.union(['zh', 'en']).description("机器人的语言\nLanguage of the bot").default('zh').required(),
-  model: Schema.string().description("机器人的模型\nModel of the bot").default('text-davinci-002').required(),
-  ntokens: Schema.number().max(256).min(16).description("机器人的最大回复长度\nMaximum length of the bot's reply").default(64).required(),
-  temperature: Schema.number().max(1).min(0).description("机器人的回复温度，越高越随机\nTemperature of the bot's reply. The higher the temperature, the more random the reply.").default(0.9).required(),
-  presencePenalty: Schema.number().max(2).min(-2).description("机器人的重复惩罚，越高越不重复已出现的语料\nPresence penalty of the bot's reply. The higher the penalty, the less likely the bot repeats tokens that has appeared so far.").default(0.6).required(),
-  frequencyPenalty: Schema.number().max(2).min(-2).description("机器人的频率惩罚，越高越不频繁已回答的语句\nFrequency penalty of the bot's reply. The higher the penalty, the less likely the bot repeats the same line as reply.").default(0).required(),
-  randomReplyFrequency: Schema.number().max(1).min(0).description("机器人的随机回复概率\nProbability of the bot's random reply").default(0.1).required(),
-})
+  botname: Schema.string().description("机器人的名字").default('半灵').required(),
+  apikey: Schema.string().role('secret').description("OpenAI 的 API Key").required(),
+  model: Schema.string().description("机器人的模型").default('text-davinci-002').required(),
+  ntokens: Schema.number().max(256).min(16).description("机器人的最大回复长度").default(64).required(),
+  temperature: Schema.number().max(1).min(0).description("机器人的回复温度，越高越随机").default(0.9).required(),
+  presencePenalty: Schema.number().max(2).min(-2).description("机器人的重复惩罚，越高越不易重复已出现的符号").default(0.6).required(),
+  frequencyPenalty: Schema.number().max(2).min(-2).description("机器人的频率惩罚，越高越不易重复已回答的语句").default(0).required(),
+  randomReplyFrequency: Schema.number().max(1).min(0).description("机器人未被直接呼叫（未被@、未被直呼其名）时的随机回复概率").default(0.1).required(),
+  botIdentitySettings: Schema.string().description("机器人的人设").default('聪明、友好、学识渊博的式神，外表是可爱的银发少女，梦想是成为世界最强').required(),
+  botMoePoint: Schema.string().description("机器人说话时的萌点").default('会在句尾使用颜文字').required(),
+  memoryShortLength: Schema.number().max(16).min(2).description("机器人的短期记忆（位于内存中）长度").default(4).required(),
+  memoryLongLength: Schema.number().max(256).min(2).description("机器人的长期记忆（位于数据库中，目前未实现）长度").default(16).required(),
+});
 
-function generatePrompt(str: string, config: Config) {
-  if (config.language === 'zh') {
-    return `下面是人类与“${config.botname}”的对话。“${config.botname}”是热心、聪明、有创意、友好、阳光、可爱的式神。
-人类: “你是谁？”
-“${config.botname}”: 我是“${config.botname}”，是一个可爱的式神。(●'◡'●)
-人类: “${str}”
-“${config.botname}”:`;
-  } else if (config.language === 'en') {
-    return `This is a conversation between a Human and "${config.botname}". "${config.botname}" is a kind, smart, creative, friendly, positive, and cute Shikigami.
-Human: "Who are you?"
-"${config.botname}": I am "${config.botname}", a cute Shikigami. (●'◡'●)
-Human: "${str}"
-"${config.botname}":`;
-  }
+const conversation = new Map<string, Map<string, string>>();
+
+function generatePrompt(userId: string, str: string, config: Config) {
+  const map = conversation.get(userId);
+  let prompt = `下面是人类与${config.botname}的对话。${config.botname}是${config.botIdentitySettings}。说话时，${config.botname}${config.botMoePoint}。\n`;
+  map.forEach((value, key) => {
+    prompt += `人类：${key}\n${config.botname}：${value}\n`;
+  });
+  prompt += `人类：${str}\n${config.botname}：`;
+  return prompt;
 }
 
-async function getOpenAIReply(str: string, config: Config) {
+async function getOpenAIReply(session: Session, config: Config) {
   const configuration = new Configuration({
     apiKey: config.apikey,
   });
   const openai = new OpenAIApi(configuration);
   const completion = await openai.createCompletion({
     model: config.model,
-    prompt: generatePrompt(str, config),
+    prompt: generatePrompt(session.uid, session.content, config),
     max_tokens: config.ntokens,
     temperature: config.temperature,
     presence_penalty: config.presencePenalty,
     frequency_penalty: config.frequencyPenalty,
-    stop: ["\n", "Human:", "人类："],
+    stop: ["人类："],
     user: config.botname
   });
   return completion.data.choices[0].text;
@@ -79,8 +81,17 @@ export function apply(ctx: Context, config: Config) {
   ctx.middleware(async (session, next) => {
     if (ctx.bots[session.uid]) return // ignore bots from self
     if (getReplyCondition(session, config)) {
-      session.send(await getOpenAIReply(session.content, config));
+      if (!conversation.has(session.uid)) {
+        conversation.set(session.uid, new Map<string, string>());
+      }
+      const reply = await getOpenAIReply(session, config);
+      const conv = conversation.get(session.uid);
+      while (conv.size >= config.memoryShortLength) {
+        conv.delete(conv.keys().next().value);
+      } // remove the oldest messages
+      conv.set(session.content, reply);
+      session.send(reply);
     }
-    return next()
+    return next();
   })
 }
