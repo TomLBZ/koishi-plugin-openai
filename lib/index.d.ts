@@ -1,5 +1,5 @@
 import { Context, Schema } from 'koishi';
-export declare const name = "koishi-plugin-openai";
+export declare const name = "openai";
 export interface Config {
     apikey: string;
     botname: string;
