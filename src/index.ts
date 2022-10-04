@@ -1,7 +1,7 @@
 import { Context, Schema, Session } from 'koishi';
 import { Configuration, OpenAIApi} from "openai";
 
-export const name = 'openai';
+export const name = '@tomlbz/openai';
 
 export interface Config {
   apikey: string;
