@@ -23,10 +23,10 @@ export const Config: Schema<Config> = Schema.object({
   apikey: Schema.string().role('secret').description("OpenAI 的 API Key").required(),
   model: Schema.string().description("机器人的模型").default('text-davinci-002').required(),
   ntokens: Schema.number().max(256).min(16).description("机器人的最大回复长度").default(64).required(),
-  temperature: Schema.number().max(1).min(0).description("机器人的回复温度，越高越随机").default(0.9).required(),
+  temperature: Schema.percent().description("机器人的回复温度，越高越随机").default(0.9).required(),
   presencePenalty: Schema.number().max(2).min(-2).description("机器人的重复惩罚，越高越不易重复已出现的符号").default(0.6).required(),
   frequencyPenalty: Schema.number().max(2).min(-2).description("机器人的频率惩罚，越高越不易重复已回答的语句").default(0).required(),
-  randomReplyFrequency: Schema.number().max(1).min(0).description("机器人未被直接呼叫（未被@、未被直呼其名）时的随机回复概率").default(0.1).required(),
+  randomReplyFrequency: Schema.percent().description("机器人未被直接呼叫（未被@、未被直呼其名）时的随机回复概率").default(0.1).required(),
   botIdentitySettings: Schema.string().description("机器人的人设").default('聪明、友好、学识渊博的式神，外表是可爱的银发少女，梦想是成为世界最强').required(),
   botMoePoint: Schema.string().description("机器人说话时的萌点").default('会以类似“(๑•̀ㅂ•́)و✧”、“(◍•ᴗ•◍)”的可爱的颜文字符号结尾').required(),
   memoryShortLength: Schema.number().max(16).min(2).description("机器人的短期记忆（位于内存中）长度").default(4).required(),
@@ -65,12 +65,12 @@ async function getOpenAIReply(session: Session, config: Config) {
 
 function getReplyCondition(session: Session, config: Config){
   if (session.subtype === 'group') {
-    if (session.parsed.appel) return true;
-    if (session.content.includes(config.botname)) return true;
-    if (Math.random() < config.randomReplyFrequency) return true;
-    return false;
+    if (session.parsed.appel) return 1;
+    if (session.content.includes(config.botname)) return 2;
+    if (Math.random() < config.randomReplyFrequency) return 3;
+    return 0;
   } else {
-    return true;
+    return 4;
   }
 }
 
@@ -78,7 +78,10 @@ export function apply(ctx: Context, config: Config) {
   // write your plugin here
   ctx.middleware(async (session, next) => {
     if (ctx.bots[session.uid]) return // ignore bots from self
-    if (getReplyCondition(session, config)) {
+    let condition = getReplyCondition(session, config);
+    if (condition > 0) {
+      let logger = ctx.logger('openai');
+      logger.info(`condition ${condition} met, replying`);
       if (!conversation.has(session.uid)) {
         conversation.set(session.uid, new Map<string, string>());
       }
@@ -88,7 +91,7 @@ export function apply(ctx: Context, config: Config) {
         conv.delete(conv.keys().next().value);
       } // remove the oldest messages
       conv.set(session.content, reply);
-      return reply
+      return reply;
     }
     return next();
   })
