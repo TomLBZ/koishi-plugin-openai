@@ -1,18 +1,6 @@
-import { Context, Schema } from 'koishi';
+import { Context } from 'koishi';
+import { Config } from './config';
+export * from './config';
+export declare const reactive = true;
 export declare const name = "@tomlbz/openai";
-export interface Config {
-    apikey: string;
-    botname: string;
-    model: string;
-    ntokens: number;
-    temperature: number;
-    presencePenalty: number;
-    frequencyPenalty: number;
-    randomReplyFrequency: number;
-    botIdentitySettings: string;
-    botMoePoint: string;
-    memoryShortLength: number;
-    memoryLongLength: number;
-}
-export declare const Config: Schema<Config>;
 export declare function apply(ctx: Context, config: Config): void;

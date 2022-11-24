@@ -1,98 +1,85 @@
-import { Context, Schema, Session } from 'koishi';
-import { Configuration, OpenAIApi} from "openai";
+import { Context, Dict, Logger, Session } from 'koishi'
+import { Config } from './config'
+import { MemoryDict } from './memory'
+import { getBasePrompts, getReply, getSummary, getTopic } from './prompt'
 
-export const name = '@tomlbz/openai';
+export * from './config'
+export const reactive = true
+export const name = '@tomlbz/openai'
 
-export interface Config {
-  apikey: string;
-  botname: string;
-  model: string;
-  ntokens: number;
-  temperature: number;
-  presencePenalty: number;
-  frequencyPenalty: number;
-  randomReplyFrequency: number;
-  botIdentitySettings: string;
-  botMoePoint: string;
-  memoryShortLength: number;
-  memoryLongLength: number;
-}
-
-export const Config: Schema<Config> = Schema.object({
-  botname: Schema.string().description("机器人的名字").default('半灵').required(),
-  apikey: Schema.string().role('secret').description("OpenAI 的 API Key").required(),
-  model: Schema.string().description("机器人的模型").default('text-davinci-002').required(),
-  ntokens: Schema.number().max(256).min(16).description("机器人的最大回复长度").default(64).required(),
-  temperature: Schema.percent().description("机器人的回复温度，越高越随机").default(0.9).required(),
-  presencePenalty: Schema.number().max(2).min(-2).description("机器人的重复惩罚，越高越不易重复已出现的符号").default(0.6).required(),
-  frequencyPenalty: Schema.number().max(2).min(-2).description("机器人的频率惩罚，越高越不易重复已回答的语句").default(0).required(),
-  randomReplyFrequency: Schema.percent().description("机器人未被直接呼叫（未被@、未被直呼其名）时的随机回复概率").default(0.1).required(),
-  botIdentitySettings: Schema.string().description("机器人的人设").default('聪明、友好、学识渊博的式神，外表是可爱的银发少女，梦想是成为世界最强').required(),
-  botMoePoint: Schema.string().description("机器人说话时的萌点").default('会以类似“(๑•̀ㅂ•́)و✧”、“(◍•ᴗ•◍)”的可爱的颜文字符号结尾').required(),
-  memoryShortLength: Schema.number().max(16).min(2).description("机器人的短期记忆（位于内存中）长度").default(4).required(),
-  memoryLongLength: Schema.number().max(256).min(2).description("机器人的长期记忆（位于数据库中，目前未实现）长度").default(16).required(),
-});
-
-const conversation = new Map<string, Map<string, string>>();
-
-function generatePrompt(userId: string, str: string, config: Config) {
-  const map = conversation.get(userId);
-  let prompt = `下面是人类与${config.botname}的对话。${config.botname}是${config.botIdentitySettings}。说话时，${config.botname}${config.botMoePoint}。\n`;
-  map.forEach((value, key) => {
-    prompt += `人类：${key}\n${config.botname}：${value}\n`;
-  });
-  prompt += `人类：${str}\n${config.botname}：`;
-  return prompt;
-}
-
-async function getOpenAIReply(session: Session, config: Config) {
-  const configuration = new Configuration({
-    apiKey: config.apikey,
-  });
-  const openai = new OpenAIApi(configuration);
-  const completion = await openai.createCompletion({
-    model: config.model,
-    prompt: generatePrompt(session.uid, session.content, config),
-    max_tokens: config.ntokens,
-    temperature: config.temperature,
-    presence_penalty: config.presencePenalty,
-    frequency_penalty: config.frequencyPenalty,
-    stop: ["人类："],
-    user: config.botname
-  });
-  return completion.data.choices[0].text;
-}
+const logger = new Logger('@tomlbz/openai')
+const memory = new MemoryDict(0, 0, 0)
+memory.loadMemory()
+let textUpdates = 0
 
 function getReplyCondition(session: Session, config: Config){
-  if (session.subtype === 'group') {
-    if (session.parsed.appel) return 1;
-    if (session.content.includes(config.botname)) return 2;
-    if (Math.random() < config.randomReplyFrequency) return 3;
-    return 0;
+  if (session.subtype === 'group') { // 群聊
+    if (session.parsed.appel) return 1 // @bot
+    if (session.content.includes(config.botname)) return 2 // 包含botname
+    if (Math.random() < config.randomReplyFrequency) return 3 // 随机回复
+    return 0 // 不回复
   } else {
-    return 4;
+    return 4 // 私聊
   }
 }
 
+function onFirstMemory(mem: MemoryDict, uid: string, username: string, sampleDialog: Dict<string, string>){
+  for (let key in sampleDialog) {
+    mem.updateTextMemory(uid, `${username}：${key}\n我：${sampleDialog[key]}`)
+  }
+  textUpdates = mem.getTextMemory(uid).length
+}
+
 export function apply(ctx: Context, config: Config) {
-  // write your plugin here
   ctx.middleware(async (session, next) => {
+    const islog = true // logging mode produces logs for all prompts
+    const isdebug = false // debugging mode does not call openai API
     if (ctx.bots[session.uid]) return // ignore bots from self
-    let condition = getReplyCondition(session, config);
-    if (condition > 0) {
-      let logger = ctx.logger('openai');
-      logger.info(`condition ${condition} met, replying`);
-      if (!conversation.has(session.uid)) {
-        conversation.set(session.uid, new Map<string, string>());
-      }
-      const reply = await getOpenAIReply(session, config);
-      const conv = conversation.get(session.uid);
-      while (conv.size >= config.memoryShortLength) {
-        conv.delete(conv.keys().next().value);
-      } // remove the oldest messages
-      conv.set(session.content, reply);
-      return reply;
+    const condition = getReplyCondition(session, config)
+    if (condition === 0) return next() // 不回复
+    const input = session.content.replace(/<[^>]*>/g, '') // 去除XML元素
+    if ( input === '' ) return next() // ignore empty message
+    if (islog) logger.info(`condition ${condition} met, replying`)
+    // get info from session
+    const uid = session.uid
+    const botname = config.botname
+    const username = session.username
+    const botIdentity = config.botIdentity
+    const textMemLen = config.textMemoryLength
+    const summaryMemLen = config.summaryMemoryLength
+    const topicMemLen = config.topicMemoryLength
+    // update memory lengths
+    memory.updateLengths(textMemLen, summaryMemLen, topicMemLen)
+    // create memory for user if not exists
+    if (memory.createMemory(session.uid)){
+      if (islog) logger.info(`created memory for ${session.uid}`)
+      onFirstMemory(memory, uid, username, config.sampleDialog)
     }
-    return next();
+    // get base prompts before any updates from the memory
+    const bprompt = getBasePrompts(uid, username, botname, botIdentity, memory)
+    let issave = false // memory saves itself when issave is true
+    // if text mem is full, make a summary every textMemLen updates
+    if (textUpdates >= textMemLen) {
+      // if summary mem is full, make a topic from [0] every time
+      const summem = memory.getSummaryMemory(uid)
+      if (summem.length >= summaryMemLen) {
+        issave = true
+        const topic = await getTopic(bprompt, username, summem[0], config, isdebug)
+        if (islog) logger.info(`topic prompt:\n${topic}\n`)
+        memory.updateTopicMemory(uid, isdebug ? input : topic)
+      }
+      const summary = await getSummary(bprompt, username, config, isdebug)
+      if (islog) logger.info(`summary prompt:\n${summary}\n`)
+      memory.updateSummaryMemory(uid, isdebug ? input : summary)
+      textUpdates = 0
+    }
+    const reply = await getReply(bprompt, username, input, config, isdebug)
+    if (islog) logger.info(`reply prompt:\n${reply}\n`)
+    const replyText = isdebug ? input : `${username}：${input}\n我：${reply}`
+    memory.updateTextMemory(uid, replyText)
+    textUpdates++
+    if (issave) memory.saveMemory()
+    const memshape = `${JSON.stringify(memory.getTextMemory(uid))}\n${JSON.stringify(memory.getSummaryMemory(uid))}\n${JSON.stringify(memory.getTopicMemory(uid))}`
+    return isdebug ? memshape : reply
   })
 }
