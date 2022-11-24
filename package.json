@@ -17,7 +17,7 @@
     "lib",
     "dist"
   ],
-  "license": "GNU GPL v3",
+  "license": "GNU AGPLv3",
   "scripts": {},
   "keywords": [
     "chatbot",
