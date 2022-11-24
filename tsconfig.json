@@ -9,9 +9,11 @@
     "incremental": true,
     "skipLibCheck": true,
     "esModuleInterop": true,
-    "moduleResolution": "node"
+    "moduleResolution": "node",
+    "jsx": "react-jsx",
+    "jsxImportSource": "@satorijs/element",
   },
   "include": [
-    "src"
-  ]
+    "src",
+  ],
 }
