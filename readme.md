@@ -39,4 +39,4 @@ The bot will respond using `OpenAI API` under these conditions:
 | textMemoryLength | 字面记忆长度，即能够<br>`准确记住`的`最新`对话数，<br>用于维持`上下文` | `2~8` | 不要太高，否则容易消耗<br>大量token。建议`2~4`之间 |
 | summaryMemoryLength | 总结记忆长度，即能够<br>`大概记住`的`最新`对话数。<br>字面记忆溢出后`整批次`<br>生成总结记忆 | `2~8` | 不要太高，否则容易消耗<br>大量token。建议`2~4`之间 |
 | topicMemoryLength | 主题记忆长度，既能够<br>`记住主题`的`最新`对话数。<br>总结记忆溢出后`逐条`生成<br>主题词并`存储`到本地 | `2~32` | 不要太高，否则容易消耗<br>大量token。建议`2~16`之间 |
-| islog | 向控制台输出触发回复的<br>`状态码`和各阶段生成的回<br>复，即`记忆`的生成`过程` | - | 建议`false`，否则会大大<br>增加log的长度 |
+| islog | 向控制台输出触发回复的<br>`状态码`和各阶段生成的回<br>复，即`记忆`的生成`过程` | `true`<br>`false` | 建议`false`，否则会大大<br>增加log的长度 |

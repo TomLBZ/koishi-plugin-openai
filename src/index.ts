@@ -32,7 +32,7 @@ function onFirstMemory(mem: MemoryDict, uid: string, username: string, sampleDia
 
 export function apply(ctx: Context, config: Config) {
   ctx.middleware(async (session, next) => {
-    const islog = true // logging mode produces logs for all prompts
+    const islog = config.islog // logging mode produces logs for all prompts
     const isdebug = false // debugging mode does not call openai API
     if (ctx.bots[session.uid]) return // ignore bots from self
     const condition = getReplyCondition(session, config)
