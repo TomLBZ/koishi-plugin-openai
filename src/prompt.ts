@@ -36,7 +36,7 @@ export async function getReply(bprompts: string[], username: string, input: stri
       temperature: config.temperature,
       presence_penalty: config.presencePenalty,
       frequency_penalty: config.frequencyPenalty,
-      stop: [`\n${username}：`],
+      stop: [`\n${username}：`, `\n${username}`, `${username}：`, `\n\n`],
       user: config.botname
     })
     return completion.data.choices[0].text.trim()
@@ -52,7 +52,7 @@ export async function getSummary(bprompts: string[], username: string, config: C
     const completion = await openai.createCompletion({
       model: config.model,
       prompt: prompt,
-      max_tokens: config.ntokens,
+      max_tokens: config.ntokens * 2,
       temperature: config.temperature,
       presence_penalty: config.presencePenalty,
       frequency_penalty: config.frequencyPenalty,

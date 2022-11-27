@@ -43,7 +43,7 @@ export const Config: Schema<Config> = Schema.intersect([
     }).description("机器人身份配置"),
     Schema.object({
         ntokens: Schema.number().description('回复的最大Token数')
-        .min(16).max(512).step(16).default(64),
+        .min(16).max(512).step(16).default(80),
         temperature: Schema.percent().description('回复温度，越高越随机')
         .default(0.8),
         presencePenalty: Schema.number().description('重复惩罚，越高越不易重复出现过至少一次的Token')
