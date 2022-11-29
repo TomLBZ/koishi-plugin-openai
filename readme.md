@@ -27,7 +27,7 @@ The bot will respond using `OpenAI API` under these conditions:
 | 参数 | 作用 | 取值范围 | 建议值 |
 | --- | --- | --- | --- |
 | apikey | 调用OpenAI API | - | - |
-| model | 选择`语言模型` | `text-davinci-002`<br>`text-curie-001`<br>`text-babbage-001`<br>`text-ada-001` | `text-davinci-002`是效果最好的 |
+| model | 选择`语言模型` | `text-davinci-003`<br>`text-davinci-002`<br>`text-davinci-001`<br>`text-curie-001`<br>`text-babbage-001`<br>`text-ada-001` | `text-davinci-003`是效果最好的 |
 | botname | 机器人的`名字` | - | 不要太长 |
 | botIdentity | 是机器人`人设`的主要组成部分 | - | 用`第一人称`写，要抓住人设的精髓。建议`100~200`汉字之间 |
 | sampleDialog | 是机器人`口癖/萌点/说话习惯`的主要组成部分 | - | 维持`自洽的说话习惯`，且`不要太多或太长`，否则容易消耗大量token。建议`5`条以内，每条回答`20`汉字左右 |

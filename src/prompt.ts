@@ -43,7 +43,7 @@ export async function getReply(bprompts: string[], username: string, input: stri
 }
 
 export async function getSummary(bprompts: string[], username: string, config: Config, isdebug: boolean) {
-    const prompt = `${bprompts[0]}${bprompts[3]}\n#用一段话总结我和${username}的对话\n`
+    const prompt = `${bprompts[0]}${bprompts[3]}\n#用一段话简单总结我和${username}的对话\n`
     if (isdebug) return prompt
     const configuration = new Configuration({
       apiKey: config.apikey,
@@ -62,7 +62,7 @@ export async function getSummary(bprompts: string[], username: string, config: C
 }
 
 export async function getTopic(bprompts: string[], username: string, summary: string, config: Config, isdebug: boolean) {
-    const prompt = `${bprompts[0]}#用一段话总结我和${username}的对话\n${summary}\n#找出上一句话的三个主题词，例如：太阳、月亮、星星\n`
+    const prompt = `${bprompts[0]}#用一段话简单总结我和${username}的对话\n${summary}\n#找出上一句话的三个主题词，格式：太阳、月亮、星星\n`
     if (isdebug) return prompt
     const configuration = new Configuration({
       apiKey: config.apikey,
