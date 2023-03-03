@@ -21,6 +21,7 @@ export const Config: Schema<Config> = Schema.intersect([
     Schema.object({
         apikey: Schema.string().required().role('secret').description('OpenAI 的 API Key'),
         model: Schema.union([
+            'gpt-3.5-turbo',
             'text-davinci-003',
             'text-davinci-002',
             'text-davinci-001',
@@ -28,7 +29,7 @@ export const Config: Schema<Config> = Schema.intersect([
             'text-babbage-001',
             'text-ada-001'
         ]).description('OpenAI 的语言模型，默认使用第一个')
-        .default('text-davinci-003'),
+        .default('gpt-3.5-turbo'),
     }).description("OpenAI 配置"),
     Schema.object({
         botname: Schema.string().description('名字')

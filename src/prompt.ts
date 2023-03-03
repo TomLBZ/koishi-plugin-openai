@@ -29,9 +29,9 @@ export async function getReply(bprompts: string[], username: string, input: stri
       apiKey: config.apikey,
     })
     const openai = new OpenAIApi(configuration)
-    const completion = await openai.createCompletion({
+    const completion = await openai.createChatCompletion({
       model: config.model,
-      prompt: prompt,
+      messages: [{role: "user", content:prompt}],
       max_tokens: config.ntokens,
       temperature: config.temperature,
       presence_penalty: config.presencePenalty,
@@ -39,7 +39,7 @@ export async function getReply(bprompts: string[], username: string, input: stri
       stop: [`\n${username}：`, `\n${username}`, `${username}：`, `\n\n`],
       user: config.botname
     })
-    return completion.data.choices[0].text.trim()
+    return completion.data.choices[0].message.content.trim();
 }
 
 export async function getSummary(bprompts: string[], username: string, config: Config, isdebug: boolean) {
@@ -49,16 +49,16 @@ export async function getSummary(bprompts: string[], username: string, config: C
       apiKey: config.apikey,
     })
     const openai = new OpenAIApi(configuration)
-    const completion = await openai.createCompletion({
+    const completion = await openai.createChatCompletion({
       model: config.model,
-      prompt: prompt,
+      messages: [{role: "user", content:prompt}],
       max_tokens: config.ntokens * 2,
       temperature: config.temperature,
       presence_penalty: config.presencePenalty,
       frequency_penalty: config.frequencyPenalty,
       user: config.botname
     })
-    return completion.data.choices[0].text.trim()
+    return completion.data.choices[0].message.content.trim();
 }
 
 export async function getTopic(bprompts: string[], username: string, summary: string, config: Config, isdebug: boolean) {
@@ -68,14 +68,14 @@ export async function getTopic(bprompts: string[], username: string, summary: st
       apiKey: config.apikey,
     })
     const openai = new OpenAIApi(configuration)
-    const completion = await openai.createCompletion({
+    const completion = await openai.createChatCompletion({
       model: config.model,
-      prompt: prompt,
+      messages: [{role: "user", content:prompt}],
       max_tokens: config.ntokens,
       temperature: config.temperature,
       presence_penalty: config.presencePenalty,
       frequency_penalty: config.frequencyPenalty,
       user: config.botname
     })
-    return completion.data.choices[0].text.trim()
+    return completion.data.choices[0].message.content.trim();
 }
