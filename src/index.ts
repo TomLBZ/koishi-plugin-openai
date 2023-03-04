@@ -1,97 +1,50 @@
-import { Context, Dict, Logger, Session } from 'koishi'
+import { Context, Logger } from 'koishi'
 import { Config } from './config'
-import { MemoryDict } from './memory'
-import { getBasePrompts, getReply, getSummary, getTopic } from './prompt'
 import { Eye } from './eye'
 import { Soul } from './soul'
 import { AI } from './ai'
+import { Cache } from './cache'
 
 export * from './config'
 export const reactive = true
 export const name = '@tomlbz/openai'
 
-const logger = new Logger('@tomlbz/openai')
-const memory = new MemoryDict(0, 0, 0)
-memory.loadMemory()
-let textUpdates = 0
 // global variables
-let eye: Eye = null
-let soul: Soul = null
-let ai: AI = null
-
-function onFirstMemory(mem: MemoryDict, uid: string, username: string, sampleDialog: Dict<string, string>){
-  for (let key in sampleDialog) {
-    mem.updateTextMemory(uid, `${username}：${key}\n我：${sampleDialog[key]}`)
-  }
-  textUpdates = mem.getTextMemory(uid).length
-}
+const logger = new Logger('@tomlbz/openai')
+const ai: AI = new AI()
+const soul: Soul = new Soul()
+const eye: Eye = new Eye()
+const cache: Cache = new Cache()
 
 export function apply(ctx: Context, config: Config) {
   ctx.on('ready', async () => {
-    ai = await AI.create(config)
-    soul = await Soul.create(config)
-    eye = Eye.create(config, ctx.root.config.nickname)
-  })
-  ctx.on('dispose', async () => {
-    ai = null
-    soul = null
-    eye = null
+    const bai = await ai.init(config)
+    const bsoul = await soul.init(config)
+    const beye = eye.init(config, ctx.root.config.nickname)
+    const bcache = cache.init(config)
+    if (config.isLog) logger.info(`Initialization: AI(${bai ? '√' : 'X'}) Soul(${bsoul ? '√' : 'X'}) Eye(${beye ? '√' : 'X'}) Cache(${bcache ? '√' : 'X'})`)
   })
   ctx.middleware(async (session, next) => {
-    ai.update(config)
-    soul.update(config)
-    eye.update(config)
-    if (config.isLog) logger.info('Updated config.')
-    const isdebug = true // debugging mode does not call openai API
     const input = eye.readInput(ctx, session)
     if (!input) return next()
-    const ppt = eye.keywordPrompt(input, session.username)
-    const keywords = await ai.chat(ppt)
-    const metadata = eye.getMetadata(input, keywords, session.username)
-    const embeddings = await ai.embed(input)
-    await soul.remember(embeddings, metadata) // save to database
-    const related = await soul.think(embeddings, metadata) // get related metadata
-    return eye.devPrint(related)
-    // get info from session
-    const uid = session.uid
-    const botname = config.botName
-    const username = session.username
-    const botIdentity = config.botIdentity
-    const textMemLen = config.textMemoryLength
-    const summaryMemLen = config.summaryMemoryLength
-    const topicMemLen = config.topicMemoryLength
-    // update memory lengths
-    memory.updateLengths(textMemLen, summaryMemLen, topicMemLen)
-    // create memory for user if not exists
-    if (memory.createMemory(session.uid)){
-      if (config.isLog) logger.info(`created memory for ${session.uid}`)
-      onFirstMemory(memory, uid, username, config.sampleDialog)
+    if (!cache.get(session.username)) { // if empty cache, fill it with sample prompts
+      const sampleprompts = eye.samplePrompt(session.username)
+      sampleprompts.forEach(p => cache.push(session.username, p))
     }
-    // get base prompts before any updates from the memory
-    const bprompt = getBasePrompts(uid, username, botname, botIdentity, memory)
-    let issave = false // memory saves itself when issave is true
-    // if text mem is full, make a summary every textMemLen updates
-    if (textUpdates >= textMemLen) {
-      // if summary mem is full, make a topic from [0] every time
-      const summem = memory.getSummaryMemory(uid)
-      if (summem.length >= summaryMemLen) {
-        issave = true
-        const topic = await getTopic(bprompt, username, summem[0], config, isdebug)
-        if (config.isLog) logger.info(`topic prompt:\n${topic}\n`)
-        memory.updateTopicMemory(uid, isdebug ? input : topic)
-      }
-      const summary = await getSummary(bprompt, username, config, isdebug)
-      if (config.isLog) logger.info(`summary prompt:\n${summary}\n`)
-      memory.updateSummaryMemory(uid, isdebug ? input : summary)
-      textUpdates = 0
-    }
-    const reply = await getReply(bprompt, username, input, config, isdebug)
-    if (config.isLog) logger.info(`reply prompt:\n${reply}\n`)
-    const replyText = isdebug ? input : `${username}：${input}\n我：${reply}`
-    memory.updateTextMemory(uid, replyText)
-    textUpdates++
-    if (issave) memory.saveMemory()
-    const memshape = `${JSON.stringify(memory.getTextMemory(uid))}\n${JSON.stringify(memory.getSummaryMemory(uid))}\n${JSON.stringify(memory.getTopicMemory(uid))}`
-    return isdebug ? memshape : reply
+    const iembeddings = await ai.embed(input)
+    const ikeywords = await ai.chat(eye.keywordPrompt(input, session.username))
+    const imetadata = eye.getMetadata(input, ikeywords, session.username)
+    const irelated = await soul.recallNext(iembeddings, imetadata) // get related messages
+    await soul.remember(iembeddings, imetadata) // save current message to vector database
+    const pask = eye.askPrompt(input, session.username, irelated, cache.get(session.username))
+    cache.push(session.username, eye.userPrompt(input, session.username)) // save original input to cache
+    const rask = await ai.chat(pask)
+    cache.push(session.username, rask) // save reply to cache
+    const rasktext = rask['content']
+    const rtembeddings = await ai.embed(rasktext)
+    const rtkeywords = await ai.chat(eye.keywordPrompt(rasktext, session.username))
+    const rtmetadata = eye.getMetadata(rasktext, rtkeywords, config.botName) // config.botName
+    await soul.remember(rtembeddings, rtmetadata) // save reply to vector database
+    return eye.devPrint([JSON.stringify(cache.get(session.username))])
   })
 }

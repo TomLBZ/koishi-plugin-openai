@@ -1,27 +1,27 @@
 import { Context, Session, Logger } from 'koishi'
 import { Config, EyeInvariant } from './config'
 import { IDict, Metadata } from './types'
+import { get_encoding } from '@dqbd/tiktoken'
 
 export class Eye {
-    private constructor(
-        private readonly _logger: Logger,
-        private readonly _invariant: EyeInvariant,
-        private _islog: boolean,
-        private _names: string[]
-    ) {}
-    public static create(config: Config, nicknames?: string | string[]) {
-        const logger = new Logger('@tomlbz/openai/eye')
-        const islog = config.isLog
-        const invariant : EyeInvariant = {
+    private _logger: Logger
+    private _invariant: EyeInvariant
+    private _islog: boolean
+    private _names: string[]
+    constructor() {}
+    public init(config: Config, nicknames?: string | string[]) : boolean {
+        this._logger = new Logger('@tomlbz/openai/eye')
+        this._islog = config.isLog
+        this._invariant = {
             botName: config.botName,
             isNickname: config.isNickname,
             botIdentity: config.botIdentity,
             sampleDialog: config.sampleDialog,
             randomReplyFrequency: config.randomReplyFrequency
         }
-        const names = [config.botName, ...Eye.fnicknames(nicknames)]
-        if (islog) logger.info(`Eye Created. Available names: ${names}`)
-        return new Eye(logger, invariant, islog, names)
+        this._names = [config.botName, ...Eye.fnicknames(nicknames)]
+        if (this._islog) this._logger.info(`Eye Created. Available names: ${this._names}`)
+        return true
     }
     private static fnicknames(nicknames?: string | string[]) {
         if (!nicknames) return []
@@ -44,27 +44,36 @@ export class Eye {
     }
     public getMetadata(s: string, keywords: IDict<string>, speaker?: string) : Metadata {
         const keystr = keywords['content']
-        const keystrs = (keystr ? keystr.split(',').map(s => s.trim()) : []).filter(s => s.includes('-')).map(s => s.replace('-', ''))
-        if (this._islog) this._logger.info(`Keywords: ${keystrs ? keystrs : 'none'}`)
+        const keystrs = (keystr ? keystr.replace('，',',').split(',').map(s => s.trim()) : []).filter(s => s.includes('-')).map(s => s.replace('-', ''))
+        if (this._islog) this._logger.info(`Keywords: ${keystrs && keystrs.length > 0 ? keystrs : 'none'}`)
         return {
             text: s,
             timestamp: Date.now(),
-            speaker: speaker ? speaker : this._invariant.botIdentity,
+            speaker: speaker ? speaker : 'assistant', // this._invariant.botName
             keywords: keystrs
         } as Metadata
     }
+    public systemPrompt(s: string): IDict<string> {
+        return {'role': 'system', 'content': s, 'name': 'system'}
+    }
+    public userPrompt(s: string, name: string): IDict<string> {
+        return {'role': 'user', 'content': s, 'name': name}
+    }
+    public botPrompt(s: string): IDict<string> {
+        return {'role': 'assistant', 'content': s, 'name': 'assistant'} // this._invariant.botName
+    }
     public keywordPrompt(s: string, name: string) : IDict<string>[] {
         return [
-            {'role': 'system', 'content': '你是提取关键词的AI。接下来你将会看到一段话，你需要返回至少1个、不超过5个关键词。格式为-1,-2,-3,...。', 'name': 'system'},
-            {'role': 'user', 'content': '新加坡经济发展很好是因为地理位置得天独厚。它地处马六甲海峡，是亚洲与欧洲的航运枢纽。', 'name': name},
-            {'role': 'assistant', 'content': '-新加坡,-经济发展,-地理位置,-马六甲海峡,-航运', 'name': 'assistant'},
-            {'role': 'user', 'content': '（测试1，', 'name': name},
-            {'role': 'assistant', 'content': '-测试', 'name': 'assistant'},
-            {'role': 'user', 'content': '？', 'name': name},
-            {'role': 'assistant', 'content': '未发现关键词', 'name': 'assistant'},
-            {'role': 'user', 'content': '求新功能的说明', 'name': name},
-            {'role': 'assistant', 'content': '-新功能,-说明', 'name': 'assistant'},
-            {'role': 'user', 'content': s, 'name': name},
+            this.systemPrompt('你是提取关键词的AI。接下来你将会看到一段话，你需要返回至少1个、不超过5个关键词。格式为-1,-2,-3,...。'),
+            this.userPrompt('新加坡经济发展很好是因为地理位置得天独厚。它地处马六甲海峡，是亚洲与欧洲的航运枢纽。', name),
+            this.botPrompt('-新加坡,-经济发展,-地理位置,-马六甲海峡,-航运'),
+            this.userPrompt('（测试1，', name),
+            this.botPrompt('-测试'),
+            this.userPrompt('？', name),
+            this.botPrompt('未发现关键词'),
+            this.userPrompt('求新功能的说明', name),
+            this.botPrompt('-新功能,-说明'),
+            this.userPrompt(s, name)
         ]
     }
     public displayDict(idict: IDict<string>) {
@@ -80,7 +89,7 @@ export class Eye {
         }
         return res + `*/`
     }
-    public update(config: Config, nicknames?: string | string[]) {
+    public update(config: Config, nicknames?: string | string[]) : boolean {
         this._islog = config.isLog
         this._invariant.botName = config.botName
         this._invariant.isNickname = config.isNickname
@@ -88,5 +97,32 @@ export class Eye {
         this._invariant.sampleDialog = config.sampleDialog
         this._invariant.randomReplyFrequency = config.randomReplyFrequency
         this._names = [config.botName, ...Eye.fnicknames(nicknames)]
+        return true
+    }
+    public samplePrompt(name: string) : IDict<string>[] {
+        const msgs = []
+        for (const [k, v] of Object.entries(this._invariant.sampleDialog)) {
+            msgs.push(this.userPrompt(k, name))
+            msgs.push(this.botPrompt(v))
+        }
+        return msgs
+    }
+    public askPrompt(s: string, name: string, related: string[], prevs: IDict<string>[]) : IDict<string>[] {
+        const enc = get_encoding('cl100k_base')
+        const sysp = this.systemPrompt(`你叫${this._invariant.botName}。${this._invariant.botIdentity}`)
+        const sysplen = enc.encode(JSON.stringify(sysp)).length
+        const relstr = related.map(s => `[${s}]`).join(',')
+        const currp = this.userPrompt(`${s}\n\n相关句子:\n${relstr ? relstr : '无'}`, name)
+        const currplen = enc.encode(JSON.stringify(currp)).length
+        const maxlen = 4000 - sysplen - currplen
+        const selected : IDict<string>[] = []
+        let acculen = 0
+        for (let i = prevs.length - 1; i >= 0; i--) {
+            const prev = prevs[i]
+            acculen += enc.encode(JSON.stringify(prev)).length
+            if (acculen > maxlen) break
+            selected.unshift(prev)
+        }        
+        return [sysp, ...selected, currp]
     }
 }

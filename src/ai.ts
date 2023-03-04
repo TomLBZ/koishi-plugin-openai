@@ -5,31 +5,27 @@ import { IDict } from './types'
 
 /// This is a class that represents the state of the AI.
 export class AI {
-    // private constructor
-    private constructor(
-        // private state
-        private readonly _logger: Logger,
-        private readonly _invariant: AIInvariant,
-        private readonly _openai: OpenAIApi,
-        private readonly _models: IDict<string[]>,
-        private  _islog: boolean,
-        private  _name: string,
-        private _chatmodel: string,
-        private _codemodel: string,
-        private _embedmodel: string,
-    ) {}
-    // static methods (factory)
-    public static async create(config: Config) {
-        const logger = new Logger('@tomlbz/openai/ai')
-        const islog = config.isLog
-        const name = config.botName
-        const invariant : AIInvariant = {
+    private _islog: boolean
+    private _name: string
+    private _logger: Logger
+    private _invariant: AIInvariant
+    private _openai: OpenAIApi
+    private _allmodels: IDict<string[]>
+    private _chatmodel: string
+    private _codemodel: string
+    private _embedmodel: string
+    constructor() {}
+    public async init(config: Config) : Promise<boolean> {
+        this._islog = config.isLog
+        this._name = config.botName
+        this._logger = new Logger('@tomlbz/openai/ai')
+        this._invariant = {
             nTokens: config.nTokens,
             temperature: config.temperature,
             presencePenalty: config.presencePenalty,
             frequencyPenalty: config.frequencyPenalty,
         }
-        const openai = new OpenAIApi(new Configuration({apiKey: config.apiKey}))
+        this._openai = new OpenAIApi(new Configuration({apiKey: config.apiKey}))
         const excludeModels = ['deprecated', 'beta', 'if', 'search', 'similarity', 'edit', 'insert', ':']
         const ftype = (model: string) => {
             if (model.includes('whisper')) return 'audio'
@@ -38,7 +34,7 @@ export class AI {
             if (model.includes('turbo') || model.includes('text') ) return 'chat'
             return 'generic'
         }
-        const models = await (await openai.listModels()).data.data.filter((model) => {
+        this._allmodels = await (await this._openai.listModels()).data.data.filter((model) => {
             return !excludeModels.some((exclude) => model.id.includes(exclude))
         }).reduce((acc, model) => {
             const type = ftype(model.id)
@@ -46,22 +42,16 @@ export class AI {
             acc[type].push(model.id)
             return acc
         }, {} as IDict<string[]>)
-        const usablemodels = AI._usableModels(models, config.chatModel, config.codeModel)
-        const chat = usablemodels['chat'][0]
-        const code = usablemodels['code'][0]
-        const embed = usablemodels['embed'][0]
-        if (chat && islog) logger.info(`OpenAI connected. Chat model: ${chat}`)
-        else if (islog) logger.warn('OpenAI connection failed. Please check your API key or internet connection.')
-        return new AI(logger, invariant, openai, models, islog, name, chat, code, embed)
+        return this._updateModels(config.chatModel, config.codeModel)
     }
 
-    private static _usableModels(models: IDict<string[]>, chatmodel: string, codemodel: string) {
+    private _updateModels(confchatmodel: string, confcodemodel: string) : boolean {
         const newdict = {} as IDict<string[]>
-        for (const type in models) {
-            newdict[type] = models[type].filter((model) => {
-                if (type === 'chat') return model.includes(chatmodel)
+        for (const type in this._allmodels) {
+            newdict[type] = this._allmodels[type].filter((model) => {
+                if (type === 'chat') return model.includes(confchatmodel)
                 if (type === 'audio') return model.includes('whisper')
-                if (type === 'code') return model.includes(codemodel)
+                if (type === 'code') return model.includes(confcodemodel)
                 if (type === 'embed') return model.includes('embedding')
                 return false
             }).sort((a, b) => {
@@ -73,7 +63,17 @@ export class AI {
                 } else return a.length - b.length
             })
         }
-        return newdict
+        this._chatmodel = newdict['chat'][0]
+        this._codemodel = newdict['code'][0]
+        this._embedmodel = newdict['embed'][0]
+        if (this._islog) {
+            if (this._chatmodel) this._logger.info(`OpenAI Connected. Chat model: ${this._chatmodel}`)
+            else {
+                this._logger.warn('OpenAI connection failed. Please check your API key or internet connection.')
+                return false
+            }
+        }
+        return true
     }
 
     // private methods
@@ -112,7 +112,7 @@ export class AI {
         } as CreateChatCompletionRequest
         const comp = await this._openai.createChatCompletion(req as any)
         const msg = comp.data.choices[0].message
-        return {role: msg.role, content: msg.content.trim(), name: this._name}
+        return {role: msg.role, content: msg.content.trim(), name: 'assistant'} // this._name
     }
     private async chat_text(prompt: IDict<string>[]) : Promise<IDict<string>> {
         const req = {
@@ -133,7 +133,7 @@ export class AI {
             let content = msg.split(',').filter((part) => part.includes('"content":'))[0].split(':')[1].trim()
             if (content[0] === '"') content = content.slice(1)
             if (content[content.length - 1] === '"') content = content.slice(0, content.length - 1)
-            return {role: 'assistant', content: content, name: this._name} as IDict<string>
+            return {role: 'assistant', content: content, name: 'assistant'} as IDict<string> // this._name
         }
     }
 
@@ -159,20 +159,14 @@ export class AI {
         return await (await this._openai.createCompletion(req)).data.choices[0].text
     }
 
-    public update(config : Config) {
+    public update(config : Config) : boolean {
         this._islog = config.isLog
         this._name = config.botName
         this._invariant.nTokens = config.nTokens
         this._invariant.temperature = config.temperature
         this._invariant.presencePenalty = config.presencePenalty
         this._invariant.frequencyPenalty = config.frequencyPenalty
-        const usablemodels = AI._usableModels(this._models, config.chatModel, config.codeModel)
-        const chat = usablemodels['chat'][0]
-        const code = usablemodels['code'][0]
-        const embed = usablemodels['embed'][0]
-        this._chatmodel = chat
-        this._codemodel = code
-        this._embedmodel = embed
+        return this._updateModels(config.chatModel, config.codeModel)
     }
 
 }
