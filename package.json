@@ -29,8 +29,9 @@
     "koishi": "^4.0.0"
   },
   "dependencies": {
-    "openai": "^3.0.0",
-    "fs-extra": "^10.0.0"
+    "@pinecone-database/pinecone": "^0.0.9",
+    "fs-extra": "^10.1.0",
+    "openai": "^3.2.1"
   },
   "publishConfig": {
     "access": "public"
@@ -40,6 +41,9 @@
       "en": "Calls OpenAI language models for Koishi.js",
       "zh": "为 Koishi.js 调用 OpenAI 语言模型"
     },
-    "locales": ["zh", "en"]
+    "locales": [
+      "zh",
+      "en"
+    ]
   }
 }

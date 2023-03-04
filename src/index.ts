@@ -2,6 +2,9 @@ import { Context, Dict, Logger, Session } from 'koishi'
 import { Config } from './config'
 import { MemoryDict } from './memory'
 import { getBasePrompts, getReply, getSummary, getTopic } from './prompt'
+import { Eye } from './eye'
+import { Soul } from './soul'
+import { AI } from './ai'
 
 export * from './config'
 export const reactive = true
@@ -11,17 +14,10 @@ const logger = new Logger('@tomlbz/openai')
 const memory = new MemoryDict(0, 0, 0)
 memory.loadMemory()
 let textUpdates = 0
-
-function getReplyCondition(session: Session, config: Config){
-  if (session.subtype === 'group') { // 群聊
-    if (session.parsed.appel) return 1 // @bot
-    if (session.content.includes(config.botname)) return 2 // 包含botname
-    if (Math.random() < config.randomReplyFrequency) return 3 // 随机回复
-    return 0 // 不回复
-  } else {
-    return 4 // 私聊
-  }
-}
+// global variables
+let eye: Eye = null
+let soul: Soul = null
+let ai: AI = null
 
 function onFirstMemory(mem: MemoryDict, uid: string, username: string, sampleDialog: Dict<string, string>){
   for (let key in sampleDialog) {
@@ -31,18 +27,34 @@ function onFirstMemory(mem: MemoryDict, uid: string, username: string, sampleDia
 }
 
 export function apply(ctx: Context, config: Config) {
+  ctx.on('ready', async () => {
+    ai = await AI.create(config)
+    soul = await Soul.create(config)
+    eye = Eye.create(config, ctx.root.config.nickname)
+  })
+  ctx.on('dispose', async () => {
+    ai = null
+    soul = null
+    eye = null
+  })
   ctx.middleware(async (session, next) => {
-    const islog = config.islog // logging mode produces logs for all prompts
-    const isdebug = false // debugging mode does not call openai API
-    if (ctx.bots[session.uid]) return // ignore bots from self
-    const condition = getReplyCondition(session, config)
-    if (condition === 0) return next() // 不回复
-    const input = session.content.replace(/<[^>]*>/g, '') // 去除XML元素
-    if ( input === '' ) return next() // ignore empty message
-    if (islog) logger.info(`condition ${condition} met, replying`)
+    ai.update(config)
+    soul.update(config)
+    eye.update(config)
+    if (config.isLog) logger.info('Updated config.')
+    const isdebug = true // debugging mode does not call openai API
+    const input = eye.readInput(ctx, session)
+    if (!input) return next()
+    const ppt = eye.keywordPrompt(input, session.username)
+    const keywords = await ai.chat(ppt)
+    const metadata = eye.getMetadata(input, keywords, session.username)
+    const embeddings = await ai.embed(input)
+    await soul.remember(embeddings, metadata) // save to database
+    const related = await soul.think(embeddings, metadata) // get related metadata
+    return eye.devPrint(related)
     // get info from session
     const uid = session.uid
-    const botname = config.botname
+    const botname = config.botName
     const username = session.username
     const botIdentity = config.botIdentity
     const textMemLen = config.textMemoryLength
@@ -52,7 +64,7 @@ export function apply(ctx: Context, config: Config) {
     memory.updateLengths(textMemLen, summaryMemLen, topicMemLen)
     // create memory for user if not exists
     if (memory.createMemory(session.uid)){
-      if (islog) logger.info(`created memory for ${session.uid}`)
+      if (config.isLog) logger.info(`created memory for ${session.uid}`)
       onFirstMemory(memory, uid, username, config.sampleDialog)
     }
     // get base prompts before any updates from the memory
@@ -65,16 +77,16 @@ export function apply(ctx: Context, config: Config) {
       if (summem.length >= summaryMemLen) {
         issave = true
         const topic = await getTopic(bprompt, username, summem[0], config, isdebug)
-        if (islog) logger.info(`topic prompt:\n${topic}\n`)
+        if (config.isLog) logger.info(`topic prompt:\n${topic}\n`)
         memory.updateTopicMemory(uid, isdebug ? input : topic)
       }
       const summary = await getSummary(bprompt, username, config, isdebug)
-      if (islog) logger.info(`summary prompt:\n${summary}\n`)
+      if (config.isLog) logger.info(`summary prompt:\n${summary}\n`)
       memory.updateSummaryMemory(uid, isdebug ? input : summary)
       textUpdates = 0
     }
     const reply = await getReply(bprompt, username, input, config, isdebug)
-    if (islog) logger.info(`reply prompt:\n${reply}\n`)
+    if (config.isLog) logger.info(`reply prompt:\n${reply}\n`)
     const replyText = isdebug ? input : `${username}：${input}\n我：${reply}`
     memory.updateTextMemory(uid, replyText)
     textUpdates++
