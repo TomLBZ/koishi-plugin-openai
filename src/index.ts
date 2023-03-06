@@ -1,4 +1,4 @@
-import { Context, Logger } from 'koishi'
+import { Context, Logger, h } from 'koishi'
 import { Config } from './config'
 import { Eye } from './eye'
 import { Soul } from './soul'
@@ -61,6 +61,7 @@ export function apply(ctx: Context, config: Config) {
     if (config.isDebug) logger.info(`Reply Keywords: ${JSON.stringify(rtkeywords)}`)
     const rtmetadata = eye.getMetadata(rasktext, rtkeywords, config.botName) // config.botName
     await soul.remember(rtembeddings, rtmetadata) // save reply to vector database
+    if (config.isReplyWithAt && session.subtype === 'group' ) return h('at', { id: session.userId }) + rasktext
     return rasktext
   })
 }

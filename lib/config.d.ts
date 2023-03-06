@@ -5,6 +5,7 @@ export interface Config {
     codeModel: string;
     isLog: boolean;
     isDebug: boolean;
+    isReplyWithAt: boolean;
     msgCooldown: number;
     nTokens: number;
     temperature: number;

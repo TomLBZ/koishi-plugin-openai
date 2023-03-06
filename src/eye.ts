@@ -30,11 +30,17 @@ export class Eye {
         if (typeof nicknames === 'string') return [nicknames]
         return nicknames
     }
+    private _mentionedName(msg: string) : boolean{
+        for (const name of this._names) {
+            if (msg.includes(name)) return true
+        }
+        return false
+    }
     public readInput(cxt: Context, s: Session) : string | null | undefined {
         if (cxt.bots[s.uid]) return null
         const state = s.subtype !== 'group' ? 4 : // 私聊
         s.parsed.appel ? 1 : // @bot或者引用/回复bot
-        s.content in this._names ? 2 : // 直呼其名
+        this._mentionedName(s.content) ? 2 : // 直呼其名
         Math.random() < this._randomReplyFrequency ? 3 : 0 // 随机回复 // 不回复
         if (state === 0) return null
         const input = s.content.replace(/<[^>]*>/g, '') // 去除XML元素
