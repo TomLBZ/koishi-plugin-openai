@@ -73,14 +73,14 @@ export class Eye {
     public keywordPrompt(s: string, name: string) : IDict<string>[] {
         return [
             this.systemPrompt('你是提取关键词的AI。接下来你将会看到一段话，你需要返回至少1个、不超过5个关键词。格式为-1,-2,-3,...。'),
-            this.userPrompt('新加坡经济发展很好是因为地理位置得天独厚。它地处马六甲海峡，是亚洲与欧洲的航运枢纽。', name),
-            this.botPrompt('-新加坡,-经济发展,-地理位置,-马六甲海峡,-航运'),
-            this.userPrompt('（测试1，', name),
-            this.botPrompt('-测试'),
-            this.userPrompt('？', name),
-            this.botPrompt('未发现关键词'),
             this.userPrompt('求新功能的说明', name),
             this.botPrompt('-新功能,-说明'),
+            this.userPrompt('新加坡经济发展很好是因为地理位置得天独厚。它地处马六甲海峡，是亚洲与欧洲的航运枢纽。', name),
+            this.botPrompt('-新加坡,-经济发展,-地理位置,-马六甲海峡,-航运'),
+            this.userPrompt('？', name),
+            this.botPrompt('未发现关键词'),
+            this.userPrompt('（测试1，', name),
+            this.botPrompt('-测试'),
             this.userPrompt(s, name)
         ]
     }
@@ -109,9 +109,10 @@ export class Eye {
         const enc = get_encoding('cl100k_base')
         const sysp = this.systemPrompt(`${this._botIdentity.replace(/<NAME>/gi, this._botName)}`)
         const sysplen = enc.encode(JSON.stringify(sysp)).length
-        const relstr = related.map(s => `[${s}]`).join('||')
-        const know = knowledge.map(s => `[${s}]`).join('||')
-        const currp = this.userPrompt(`${s}${relstr ? '\n相关记忆参考：'+relstr : ''}${know ? '\n相关知识参考：'+know : ''}`, name)
+        const relstr = related.map(s => `[${s}]`).join('|')
+        const know = knowledge.map(s => `[${s}]`).join('|')
+        const kstr = `${relstr ? '\n\n相关记忆：'+relstr : ''}${know ? '\n网络知识：'+know : ''}`
+        const currp = this.userPrompt(`${s}\n\n${kstr}`, name)
         const currplen = enc.encode(JSON.stringify(currp)).length
         const maxlen = 4000 - sysplen - currplen
         const selected : IDict<string>[] = []

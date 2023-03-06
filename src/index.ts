@@ -19,13 +19,23 @@ let lastTime = Date.now()
 
 export function apply(ctx: Context, config: Config) {
   ctx.on('ready', async () => {
-    const bai = await ai.init(config, name)
-    const bsoul = await soul.init(config, name)
+    const bai = await ai.init(config, ctx, name)
+    const bsoul = await soul.init(config, ctx, name)
     const beye = eye.init(config, ctx.root.config.nickname, name)
     const bcache = cache.init(config)
     if (config.isLog) logger.info(`Initialization: AI(${bai ? '√' : 'X'}) Soul(${bsoul ? '√' : 'X'}) Eye(${beye ? '√' : 'X'}) Cache(${bcache ? '√' : 'X'})`)
     lastTime = Date.now()
   })
+  // ctx.middleware(async (session, next) => {
+  //   // TODO: clear memory cache and delete user's vectors from pinecone
+  //   // const deleteCommand = eye.parseCommand(session.message)
+  //   // 1. delete by prompt -> embeddings and similarity score
+  //   // 2. delete by username
+  //   // only enables forgetting in PRIVATE CHAT
+  //   // deletecommand: {which: 'local'|'remote'|'both', timediff: number, username: string}
+  //   // if (deleteCommand) {... return '已删除5/5条消息'} else {return next()}
+  //   return next()
+  // }, true)
   ctx.middleware(async (session, next) => {
     const now = Date.now()
     if (now - lastTime < config.msgCooldown * 1000) {
@@ -40,27 +50,27 @@ export function apply(ctx: Context, config: Config) {
       const sampleprompts = eye.samplePrompt(username)
       sampleprompts.forEach(p => cache.push(username, p))
     }
-    const knowledges = await soul.compute(input)
+    const knowledges = await soul.compute(input, ctx)
     if (config.isDebug) logger.info(`Knowledge: ${knowledges}`)
-    const iembeddings = await ai.embed(input)
-    const ikeywords = await ai.chat(eye.keywordPrompt(input, username))
+    const iembeddings = await ai.embed(input, ctx)
+    const ikeywords = await ai.chat(eye.keywordPrompt(input, username), ctx)
     if (config.isDebug) logger.info(`Keywords: ${JSON.stringify(ikeywords)}`)
     const imetadata = eye.getMetadata(input, ikeywords, username)
-    const irelated = await soul.recallNext(iembeddings, imetadata) // get related messages
+    const irelated = await soul.recall(iembeddings, imetadata, ctx) // get related messages
     if (config.isDebug) logger.info(`Related: ${irelated}`)
-    await soul.remember(iembeddings, imetadata) // save current message to vector database
+    await soul.remember(iembeddings, imetadata, ctx) // save current message to vector database
     const pask = eye.askPrompt(input, username, irelated, knowledges, cache.get(username))
     if (config.isDebug) logger.info(`Prompt: ${JSON.stringify(pask)}`)
     cache.push(username, eye.userPrompt(input, username)) // save original input to cache
-    const rask = await ai.chat(pask)
+    const rask = await ai.chat(pask, ctx)
     if (config.isDebug) logger.info(`Reply: ${JSON.stringify(rask)}`)
     cache.push(username, rask) // save reply to cache
     const rasktext = rask['content']
-    const rtembeddings = await ai.embed(rasktext)
-    const rtkeywords = await ai.chat(eye.keywordPrompt(rasktext, username))
+    const rtembeddings = await ai.embed(rasktext, ctx)
+    const rtkeywords = await ai.chat(eye.keywordPrompt(rasktext, username), ctx)
     if (config.isDebug) logger.info(`Reply Keywords: ${JSON.stringify(rtkeywords)}`)
     const rtmetadata = eye.getMetadata(rasktext, rtkeywords, config.botName) // config.botName
-    await soul.remember(rtembeddings, rtmetadata) // save reply to vector database
+    await soul.remember(rtembeddings, rtmetadata, ctx) // save reply to vector database
     if (config.isReplyWithAt && session.subtype === 'group' ) return h('at', { id: session.userId }) + rasktext
     return rasktext
   })

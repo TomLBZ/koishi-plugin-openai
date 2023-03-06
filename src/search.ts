@@ -1,4 +1,4 @@
-import { Logger } from 'koishi'
+import { Context, Logger } from 'koishi'
 import { JSDOM } from 'jsdom'
 import { IDict } from './types'
 import { writeFileSync } from 'fs-extra'
@@ -11,21 +11,21 @@ export class Search {
     private _azureKey: string
     private _azureRegion: string
     constructor() { }
-    public async init(config: Config, parentName: string = '@tomlbz/openai') : Promise<void> {
+    public async init(config: Config, context: Context, parentName: string = '@tomlbz/openai') : Promise<void> {
         this._logger = new Logger(parentName + '/search')
         this._islog = config.isLog
         this._azureKey = config.azureSearchKey
         this._azureRegion = config.azureSearchRegion
-        this.mode = this._azureKey ? 'bing' : await this.testSearch() ? 'google' : 'none' //'baidu'
+        this.mode = this._azureKey ? 'bing' : await this.testSearch(context) ? 'google' : 'none' //'baidu'
     }
-    private async testSearch() : Promise<boolean> {
+    private async testSearch(context: Context) : Promise<boolean> {
         const url = 'https://www.google.com/search?q=Who+is+Tom'
-        const res = await fetch(url)
-        return res.ok
+        const res = await context.http.get(url) //fetch(url)
+        const text = String(res)
+        return text.includes('Google Search') //res.ok
     }
     private _reduceElement(elem: Element, islenfilter: boolean = false) : void { // reduces nesting of single child elements
         let child = elem
-        if (this._islog && islenfilter) this._logger.info(`current: ${elem.textContent}`)
         let whilecount = 0
         while (child.children.length > 0) {
             if (child.children.length > 1) {
@@ -143,9 +143,10 @@ export class Search {
         }
         return results
     }
-    private async googleSearch(query: string, topk: number) : Promise<string[]> {
+    private async googleSearch(query: string, topk: number, context: Context) : Promise<string[]> {
         const url = `https://www.google.com/search?q=${encodeURIComponent(query)}`
-        const restext = await (await fetch(url)).text()
+        const resp = await context.http.get<Response>(url)
+        const restext = String(resp) //await resp.text()
         const htmldom = new JSDOM(restext).window.document
         const main = htmldom.querySelector('#main')
         if (!main) {
@@ -164,9 +165,10 @@ export class Search {
         const res = dictres['description'].slice(0, topk)
         return res.length ? res : []
     }
-    private async baiduSearch(query: string, topk: number) : Promise<string[]> {
+    private async baiduSearch(query: string, topk: number, context: Context) : Promise<string[]> {
         const url = `https://www.baidu.com/s?wd=${encodeURIComponent(query)}&cl=3`
-        const restext = await (await fetch(url)).text()
+        const res = await context.http.get<Response>(url)
+        const restext = await res.text()
         const htmldom = new JSDOM(restext).window.document
         const main = htmldom.querySelector('#content_left')
         if (!main) {
@@ -186,19 +188,18 @@ export class Search {
         if (str === ' ') return true // whitespace
         return str.trim().length > 0
     }
-    private async bingSearch(query: string, topk: number) : Promise<string[]> {
+    private async bingSearch(query: string, topk: number, context: Context) : Promise<string[]> {
         if (!this._isValidString(query)) return []
         const resfilter = 'Computation,Webpages'
         const url = `https://api.bing.microsoft.com/v7.0/search?q=${encodeURIComponent(query)}&count=${topk}&responseFilter=${resfilter}`
-        const res = await fetch(url, {
-            headers: { 
+        const res = await context.http.get<any>(url, {
+            headers: {
                 'Ocp-Apim-Subscription-Key': this._azureKey,
                 'Ocp-Apim-Subscription-Region': this._azureRegion
             }
-        })
-        const json = await res.json()
-        const webpages = json.webPages
-        const computations = json.computation
+        }) // is json
+        const webpages = res.webPages
+        const computations = res.computation
         if (!webpages && !computations) return []
         const allres = []
         if (webpages) {
@@ -212,10 +213,10 @@ export class Search {
         }
         return allres
     }
-    public async search(query: string, topk: number) : Promise<string[]> {
+    public async search(query: string, topk: number, context: Context) : Promise<string[]> {
         if (this._islog) this._logger.info(`Knowledge Mode: ${this.mode}`)
-        if (this.mode == 'google') return await this.googleSearch(query, topk)
-        if (this.mode == 'bing') return await this.bingSearch(query, topk)
+        if (this.mode == 'google') return await this.googleSearch(query, topk, context)
+        if (this.mode == 'bing') return await this.bingSearch(query, topk, context)
         //if (this.mode == 'baidu') return await this.baiduSearch(query, topk)
         return []
     }
