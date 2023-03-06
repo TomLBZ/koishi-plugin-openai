@@ -41,7 +41,7 @@ export class Eye {
         if (input === '') return null
         const statename = state == 1 ? 'appelled' : 
         state == 2 ? 'name called' : state == 3 ? 'random reply' : 'private message'
-        if (this._islog) this._logger.info(`${statename}, input: ${input}.`)
+        if (this._islog) this._logger.info(`${statename}, ${s.userId}: ${input}`)
         return input
     }
     public getMetadata(s: string, keywords: IDict<string>, speaker?: string) : Metadata {

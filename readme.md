@@ -88,3 +88,10 @@
 | --- | --- | --- | --- |
 | isLog | 向控制台输出日志信息 | `true`<br>`false` | 建议`true`，有助于了解运行状态 |
 | isDebug | 向控制台输出调试信息 | `true`<br>`false` | 建议`false`，否则会大大增加日志长度 |
+
+# 与ChatGPT对比
+| ChatGPT | @tomlbz/koishi-plugin-openai |
+| --- | --- |
+| ![](img/ChatGPT_01.jpg) | ![](img/Console_01.jpg)<br>![](img/Yuumu_01.jpg) |
+| ![](img/ChatGPT_02.jpg) | ![](img/Console_02.jpg)<br>![](img/Yuumu_02.jpg) |
+| ![](img/ChatGPT_03.jpg) | ![](img/Console_03.jpg)<br>![](img/Yuumu_03.jpg) |
