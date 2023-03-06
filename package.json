@@ -31,7 +31,11 @@
   "dependencies": {
     "@dqbd/tiktoken": "^0.4.0",
     "@pinecone-database/pinecone": "^0.0.9",
+    "@types/fs-extra": "^11.0.1",
+    "@types/jsdom": "^21.1.0",
+    "cheerio": "^1.0.0-rc.12",
     "fs-extra": "^10.1.0",
+    "jsdom": "^21.1.0",
     "openai": "^3.2.1",
     "uuid-by-string": "^4.0.0"
   },

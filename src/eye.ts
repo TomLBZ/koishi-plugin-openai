@@ -1,24 +1,26 @@
 import { Context, Session, Logger } from 'koishi'
-import { Config, EyeInvariant } from './config'
+import { Config } from './config'
 import { IDict, Metadata } from './types'
 import { get_encoding } from '@dqbd/tiktoken'
 
 export class Eye {
     private _logger: Logger
-    private _invariant: EyeInvariant
     private _islog: boolean
     private _names: string[]
+    private _botName: string
+    private _isNickname: boolean
+    private _botIdentity: string
+    private _sampleDialog: IDict<string>
+    private _randomReplyFrequency: number
     constructor() {}
-    public init(config: Config, nicknames?: string | string[]) : boolean {
-        this._logger = new Logger('@tomlbz/openai/eye')
+    public init(config: Config, nicknames?: string | string[], parentName: string = '@tomlbz/openai') : boolean {
+        this._logger = new Logger(parentName + '/eye')
         this._islog = config.isLog
-        this._invariant = {
-            botName: config.botName,
-            isNickname: config.isNickname,
-            botIdentity: config.botIdentity,
-            sampleDialog: config.sampleDialog,
-            randomReplyFrequency: config.randomReplyFrequency
-        }
+        this._botName = config.botName
+        this._isNickname = config.isNickname
+        this._botIdentity = config.botIdentity
+        this._sampleDialog = config.sampleDialog
+        this._randomReplyFrequency = config.randomReplyFrequency
         this._names = [config.botName, ...Eye.fnicknames(nicknames)]
         if (this._islog) this._logger.info(`Eye Created. Available names: ${this._names}`)
         return true
@@ -33,7 +35,7 @@ export class Eye {
         const state = s.subtype !== 'group' ? 4 : // 私聊
         s.parsed.appel ? 1 : // @bot或者引用/回复bot
         s.content in this._names ? 2 : // 直呼其名
-        Math.random() < this._invariant.randomReplyFrequency ? 3 : 0 // 随机回复 // 不回复
+        Math.random() < this._randomReplyFrequency ? 3 : 0 // 随机回复 // 不回复
         if (state === 0) return null
         const input = s.content.replace(/<[^>]*>/g, '') // 去除XML元素
         if (input === '') return null
@@ -89,30 +91,21 @@ export class Eye {
         }
         return res + `*/`
     }
-    public update(config: Config, nicknames?: string | string[]) : boolean {
-        this._islog = config.isLog
-        this._invariant.botName = config.botName
-        this._invariant.isNickname = config.isNickname
-        this._invariant.botIdentity = config.botIdentity
-        this._invariant.sampleDialog = config.sampleDialog
-        this._invariant.randomReplyFrequency = config.randomReplyFrequency
-        this._names = [config.botName, ...Eye.fnicknames(nicknames)]
-        return true
-    }
     public samplePrompt(name: string) : IDict<string>[] {
         const msgs = []
-        for (const [k, v] of Object.entries(this._invariant.sampleDialog)) {
+        for (const [k, v] of Object.entries(this._sampleDialog)) {
             msgs.push(this.userPrompt(k, name))
             msgs.push(this.botPrompt(v))
         }
         return msgs
     }
-    public askPrompt(s: string, name: string, related: string[], prevs: IDict<string>[]) : IDict<string>[] {
+    public askPrompt(s: string, name: string, related: string[], knowledge: string[], prevs: IDict<string>[]) : IDict<string>[] {
         const enc = get_encoding('cl100k_base')
-        const sysp = this.systemPrompt(`你叫${this._invariant.botName}。${this._invariant.botIdentity}`)
+        const sysp = this.systemPrompt(`${this._botIdentity.replace(/<NAME>/gi, this._botName)}`)
         const sysplen = enc.encode(JSON.stringify(sysp)).length
-        const relstr = related.map(s => `[${s}]`).join(',')
-        const currp = this.userPrompt(`${s}\n\n相关句子:\n${relstr ? relstr : '无'}`, name)
+        const relstr = related.map(s => `[${s}]`).join('||')
+        const know = knowledge.map(s => `[${s}]`).join('||')
+        const currp = this.userPrompt(`${s}${relstr ? '\n相关记忆参考：'+relstr : ''}${know ? '\n相关知识参考：'+know : ''}`, name)
         const currplen = enc.encode(JSON.stringify(currp)).length
         const maxlen = 4000 - sysplen - currplen
         const selected : IDict<string>[] = []

@@ -1,6 +1,6 @@
 import { Configuration, OpenAIApi, ChatCompletionRequestMessage, ChatCompletionRequestMessageRoleEnum, CreateChatCompletionRequest, CreateCompletionRequest } from 'openai'
 import { Logger } from 'koishi'
-import { Config, AIInvariant } from './config'
+import { Config } from './config'
 import { IDict } from './types'
 
 /// This is a class that represents the state of the AI.
@@ -8,23 +8,24 @@ export class AI {
     private _islog: boolean
     private _name: string
     private _logger: Logger
-    private _invariant: AIInvariant
     private _openai: OpenAIApi
     private _allmodels: IDict<string[]>
     private _chatmodel: string
     private _codemodel: string
     private _embedmodel: string
+    private _nTokens: number
+    private _temperature: number
+    private _presencePenalty: number
+    private _frequencyPenalty: number
     constructor() {}
-    public async init(config: Config) : Promise<boolean> {
+    public async init(config: Config, parentName: string = '@tomlbz/openai') : Promise<boolean> {
         this._islog = config.isLog
         this._name = config.botName
-        this._logger = new Logger('@tomlbz/openai/ai')
-        this._invariant = {
-            nTokens: config.nTokens,
-            temperature: config.temperature,
-            presencePenalty: config.presencePenalty,
-            frequencyPenalty: config.frequencyPenalty,
-        }
+        this._logger = new Logger(parentName + '/ai')
+        this._nTokens = config.nTokens
+        this._temperature = config.temperature
+        this._presencePenalty = config.presencePenalty
+        this._frequencyPenalty = config.frequencyPenalty
         this._openai = new OpenAIApi(new Configuration({apiKey: config.apiKey}))
         const excludeModels = ['deprecated', 'beta', 'if', 'search', 'similarity', 'edit', 'insert', ':']
         const ftype = (model: string) => {
@@ -104,10 +105,10 @@ export class AI {
             model: this._chatmodel,
             messages: this.formChatMsg(prompt),
             // stop is unspecified for chat.
-            max_tokens: this._invariant.nTokens,
-            temperature: this._invariant.temperature,
-            presence_penalty: this._invariant.presencePenalty,
-            frequency_penalty: this._invariant.frequencyPenalty,
+            max_tokens: this._nTokens,
+            temperature: this._temperature,
+            presence_penalty: this._presencePenalty,
+            frequency_penalty: this._frequencyPenalty,
             user: this._name // set user as bot name
         } as CreateChatCompletionRequest
         const comp = await this._openai.createChatCompletion(req as any)
@@ -119,10 +120,10 @@ export class AI {
             model: this._chatmodel,
             prompt: this.formTextMsg(prompt),
             stop: '}',
-            max_tokens: this._invariant.nTokens,
-            temperature: this._invariant.temperature,
-            presence_penalty: this._invariant.presencePenalty,
-            frequency_penalty: this._invariant.frequencyPenalty,
+            max_tokens: this._nTokens,
+            temperature: this._temperature,
+            presence_penalty: this._presencePenalty,
+            frequency_penalty: this._frequencyPenalty,
             user: this._name // set user as bot name
         } as CreateCompletionRequest
         let msg = await (await this._openai.createCompletion(req)).data.choices[0].text + '}'
@@ -150,23 +151,12 @@ export class AI {
         const req = {
             model: this._codemodel,
             prompt: prompt.trim(),
-            max_tokens: this._invariant.nTokens,
-            temperature: this._invariant.temperature,
-            presence_penalty: this._invariant.presencePenalty,
-            frequency_penalty: this._invariant.frequencyPenalty,
+            max_tokens: this._nTokens,
+            temperature: this._temperature,
+            presence_penalty: this._presencePenalty,
+            frequency_penalty: this._frequencyPenalty,
             user: this._name // set user as bot name
         }
         return await (await this._openai.createCompletion(req)).data.choices[0].text
     }
-
-    public update(config : Config) : boolean {
-        this._islog = config.isLog
-        this._name = config.botName
-        this._invariant.nTokens = config.nTokens
-        this._invariant.temperature = config.temperature
-        this._invariant.presencePenalty = config.presencePenalty
-        this._invariant.frequencyPenalty = config.frequencyPenalty
-        return this._updateModels(config.chatModel, config.codeModel)
-    }
-
 }
