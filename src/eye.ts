@@ -112,7 +112,7 @@ export class Eye {
         const rel = related.map(s => `[${s}]`).join('|')
         const relstr = rel ? '相关记忆：' + rel : ''
         const know = knowledge.map(s => `[${s}]`).join('|')
-        const kn = `${isaccurate ? '正确答案' : '不一定可靠的网络信息'}：${know}`
+        const kn = `${isaccurate ? '正确答案' : '也许有用的网络信息'}：${know}`
         if (this._islog) this._logger.info(`Knowledge: ${kn}`)
         const orderedkstr = isaccurate ? `${kn}\n${relstr}` : `${relstr}\n${kn}`
         const currp = this.userPrompt(`${s}\n\n${orderedkstr}`, name)
