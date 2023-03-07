@@ -105,14 +105,17 @@ export class Eye {
         }
         return msgs
     }
-    public askPrompt(s: string, name: string, related: string[], knowledge: string[], prevs: IDict<string>[]) : IDict<string>[] {
+    public askPrompt(s: string, name: string, related: string[], knowledge: string[], isaccurate: boolean, prevs: IDict<string>[]) : IDict<string>[] {
         const enc = get_encoding('cl100k_base')
         const sysp = this.systemPrompt(`${this._botIdentity.replace(/<NAME>/gi, this._botName)}`)
         const sysplen = enc.encode(JSON.stringify(sysp)).length
-        const relstr = related.map(s => `[${s}]`).join('|')
+        const rel = related.map(s => `[${s}]`).join('|')
+        const relstr = rel ? '相关记忆：' + rel : ''
         const know = knowledge.map(s => `[${s}]`).join('|')
-        const kstr = `${relstr ? '\n\n相关记忆：'+relstr : ''}${know ? '\n网络知识：'+know : ''}`
-        const currp = this.userPrompt(`${s}\n\n${kstr}`, name)
+        const kn = `${isaccurate ? '正确答案' : '不一定可靠的网络信息'}：${know}`
+        if (this._islog) this._logger.info(`Knowledge: ${kn}`)
+        const orderedkstr = isaccurate ? `${kn}\n${relstr}` : `${relstr}\n${kn}`
+        const currp = this.userPrompt(`${s}\n\n${orderedkstr}`, name)
         const currplen = enc.encode(JSON.stringify(currp)).length
         const maxlen = 4000 - sysplen - currplen
         const selected : IDict<string>[] = []

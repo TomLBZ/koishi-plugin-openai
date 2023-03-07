@@ -14,7 +14,7 @@
 2. 新增：允许在`插件配置-全局设置-基础设置-nickname`中增加任意数量的`昵称`用于触发AI回复。
 3. 新增：添加消息`冷却时间`，防止API调用过于频繁导致出错（API返回一般需要几秒钟）。
 4. 新增：允许在群组中直接`回复/引用`机器人的消息触发AI回复。
-5. 新增：支持使用`pinecone`向量数据库（可以[免费注册](https://www.pinecone.io/)）存储`长期记忆`，大大提升了记忆范围。（未启用时仅在本地存储短期记忆）
+5. 新增：支持使用`pinecone`向量数据库（可以[免费注册](https://www.pinecone.io/)）存储`长期记忆`，大大提升了记忆范围。（未启用时仅在本地存储短期记忆）（注意！`OpenAI`的`Embeddings`长度为`1536`，所以你的向量数据库创建时的`索引长度（Index Dimensions）`需要是`1536`！否则`Embeddings`保存不全）
 6. 新增：基于`pinecone`的`关联检索`功能，可以更准确地从听过的话中获取信息。
 7. 新增：提供`WolframAlpha推理模块`来尽可能计算参考答案（可以[免费申请AppID](https://products.wolframalpha.com/api)），可以更好地回答如“`3^99等于几`”、“`sin(x^2)的积分是什么`”、“`一加仑等于多少毫升`”这类问题。需要提供`Bing翻译API`（[免费注册](https://azure.microsoft.com/en-us/pricing/details/cognitive-services/translator/)）。不填则调用`Google`（`非API`，有调用次数限制）。如果两者都不可用，推理模块就只对英语有反应了( ╯□╰ )2333
 8. 新增：利用`Bing`搜索API（可以[免费注册](https://www.microsoft.com/en-us/bing/apis/pricing)）和`google`搜索（`非API`，可能被限制）和实现`检索模块`，对回答中的`常识性无知`进行规避（可以更好地回答如“`今天星期几`”、“`现在几点了`”这类问题）。

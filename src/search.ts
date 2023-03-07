@@ -159,7 +159,6 @@ export class Search {
         this._keepCommonClass(main)
         this._reduceGoogleItems(main)
         const classnames = '.'.concat(main.children[0].className.replace(/ /g, '.'))
-        if (this._islog) this._logger.info(classnames)
         if (!classnames.length || classnames.length == 0) return []
         const dictres = this._parseResults(main)
         const res = dictres['description'].slice(0, topk)

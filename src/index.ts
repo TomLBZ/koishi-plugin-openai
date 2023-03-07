@@ -51,7 +51,6 @@ export function apply(ctx: Context, config: Config) {
       sampleprompts.forEach(p => cache.push(username, p))
     }
     const knowledges = await soul.compute(input, ctx)
-    if (config.isDebug) logger.info(`Knowledge: ${knowledges}`)
     const iembeddings = await ai.embed(input, ctx)
     const ikeywords = await ai.chat(eye.keywordPrompt(input, username), ctx)
     if (config.isDebug) logger.info(`Keywords: ${JSON.stringify(ikeywords)}`)
@@ -59,7 +58,7 @@ export function apply(ctx: Context, config: Config) {
     const irelated = await soul.recall(iembeddings, imetadata, ctx) // get related messages
     if (config.isDebug) logger.info(`Related: ${irelated}`)
     await soul.remember(iembeddings, imetadata, ctx) // save current message to vector database
-    const pask = eye.askPrompt(input, username, irelated, knowledges, cache.get(username))
+    const pask = eye.askPrompt(input, username, irelated, knowledges, soul.isAccurate, cache.get(username))
     if (config.isDebug) logger.info(`Prompt: ${JSON.stringify(pask)}`)
     cache.push(username, eye.userPrompt(input, username)) // save original input to cache
     const rask = await ai.chat(pask, ctx)

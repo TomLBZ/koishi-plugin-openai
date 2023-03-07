@@ -19,8 +19,10 @@ export class Soul {
     private _searchTopK: number
     private _search: Search
     private _translate: Translate
+    public isAccurate: boolean
     constructor(){}
     public async init(config: Config, context: Context, parentName: string = '@tomlbz/openai') : Promise<boolean> {
+        this.isAccurate = false
         const loggerName = parentName + '/soul'
         this._islog = config.isLog
         this._logger = new Logger(loggerName)
@@ -120,13 +122,16 @@ export class Soul {
         return await context.http.get<any>(url) // await fetch(url)
     }
     public async compute(query: string, context: Context) : Promise<string[]> {
+        this.isAccurate = false
         if ( this._wolframAppId) {
             const engquery = await this._translate.translate(query, 'en-US', context)
             if (await this._wolframCheckComputable(engquery, context)) {
                 const engres = await this._wolframGetShortAnswer(engquery, context)
+                if (this._islog) this._logger.info(`engres: ${engres}`)
                 if (!engres.includes('Wolfram|Alpha did not understand your input')) {
                     if (this._islog) this._logger.info(`Knowledge Mode: WolframAlpha`)
                     const res = await this._translate.translate(engres, 'zh-CN', context)
+                    this.isAccurate = true
                     return [res] // this is from WolframAlpha
                 }
             }
