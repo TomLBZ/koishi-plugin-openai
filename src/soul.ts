@@ -19,10 +19,10 @@ export class Soul {
     private _searchTopK: number
     private _search: Search
     private _translate: Translate
-    public isAccurate: boolean
+    public searchMode: string
+    public translateMode: string
     constructor(){}
     public async init(config: Config, context: Context, parentName: string = '@tomlbz/openai') : Promise<boolean> {
-        this.isAccurate = false
         const loggerName = parentName + '/soul'
         this._islog = config.isLog
         this._logger = new Logger(loggerName)
@@ -54,6 +54,8 @@ export class Soul {
                 return false
             }
         }
+        this.searchMode = this._search.mode
+        this.translateMode = this._translate.mode
         return true
     }
     private async _describeIndex(context: Context) : Promise<string> {
@@ -82,33 +84,21 @@ export class Soul {
             else this._logger.info(`Pinecone had an unknown error while upserting vectors`)
         }
     }
-    private async _recalldb(embeddings: number[], metadata: Metadata, context: Context) : Promise<Metadata[]> {
+    public async recall(embeddings: number[], keywords: string[], context: Context) : Promise<Metadata[]> {
         if (!this._pineconeKey) return [] // no key, no pinecone
+        const data: {[id: string]: any} = {
+            'namespace': this._pineconeNamespace,
+            'topK': this._pineconeTopK,
+            'includeValues': false,
+            'includeMetadata': true,
+            'vector': embeddings
+        }
+        if (keywords && keywords.length > 0) data['filter'] = { keywords: {"$in": keywords} }
         const res = await context.http.post(
-            `${this._pineconeBaseUtl}/query`, {
-                namespace: this._pineconeNamespace,
-                topK: this._pineconeTopK,
-                filter: { keywords: {"$in": metadata.keywords} },
-                includeValues: false,
-                includeMetadata: true,
-                vector: embeddings
-            }, { headers: {
-                    'Api-Key': this._pineconeKey,
-                    'Content-Type': 'application/json'}})
+            `${this._pineconeBaseUtl}/query`, data as any, { headers: {
+                'Api-Key': this._pineconeKey,
+                'Content-Type': 'application/json'}})
         return res.matches.map(match => match.metadata as Metadata)
-    }
-    public async recall(embeddings: number[], metadata: Metadata, context: Context) : Promise<string[]> {
-        if (!this._pineconeKey) return [] // no key, no pinecone
-        const meta = await this._recalldb(embeddings, metadata, context)
-        const relatedkeyset = new Set(meta.flatMap(m => m.keywords))
-        const originalkeyset = new Set(metadata.keywords)
-        const metadatacopy = {...metadata}
-        metadatacopy.keywords = [...relatedkeyset].filter(key => !originalkeyset.has(key))
-        const nextmeta = await this._recalldb(embeddings, metadatacopy, context)
-        if (this._islog) this._logger.info(`Next Keywords: ${metadatacopy.keywords}`)
-        const texts = nextmeta.map(m => m.text)
-        if (this._islog) this._logger.info(`Pinecone found ${texts.length} matches`)
-        return texts
     }
     private async _wolframCheckComputable(query: string, context: Context) : Promise<boolean> {
         const jsonstring = `http://www.wolframalpha.com/queryrecognizer/query.jsp?appid=DEMO&mode=Default&i=${encodeURIComponent(query)}&output=json`
@@ -118,23 +108,28 @@ export class Soul {
         } catch (e) { return false }
     }
     private async _wolframGetShortAnswer(query: string, context: Context) : Promise<string> {
-        const url = `http://api.wolframalpha.com/v1/result?appid=${this._wolframAppId}&i=${encodeURIComponent(query)}&units=metric`
-        return await context.http.get<any>(url) // await fetch(url)
+        try {
+            const url = `http://api.wolframalpha.com/v1/result?appid=${this._wolframAppId}&i=${encodeURIComponent(query)}&units=metric`
+            return await context.http.get<any>(url) // await fetch(url)
+        } catch (_) {
+            this._logger.error('WolframAlpha Failed')
+            return ''
+        }
     }
-    public async compute(query: string, context: Context) : Promise<string[]> {
-        this.isAccurate = false
-        if ( this._wolframAppId) {
+    public async compute(query: string, context: Context) : Promise<string> {
+        if (this._wolframAppId) {
             const engquery = await this._translate.translate(query, 'en-US', context)
             if (await this._wolframCheckComputable(engquery, context)) {
-                const engres = await this._wolframGetShortAnswer(engquery, context)
+                let engres: string = await this._wolframGetShortAnswer(engquery, context)
+                engres = String(engres)
                 if (!engres.includes('Wolfram|Alpha did not understand your input')) {
-                    if (this._islog) this._logger.info(`Knowledge Mode: WolframAlpha`)
-                    const res = await this._translate.translate(engres, 'zh-CN', context)
-                    this.isAccurate = true
-                    return [res] // this is from WolframAlpha
+                    return await this._translate.translate(engres, 'zh-CN', context)
                 }
             }
         }
-        return await this._search.search(query, this._searchTopK, context) // this is from search engine
+        return ''
+    }
+    public async search(query: string, context: Context) : Promise<string[]> {
+        return await this._search.search(query, this._searchTopK, context)
     }
 }

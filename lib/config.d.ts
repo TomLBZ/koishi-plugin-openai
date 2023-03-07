@@ -2,6 +2,7 @@ import { Dict, Schema } from 'koishi';
 export interface Config {
     apiKey: string;
     chatModel: string;
+    keywordModel: string;
     codeModel: string;
     isLog: boolean;
     isDebug: boolean;

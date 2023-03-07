@@ -4,27 +4,41 @@
 [![npm](https://img.shields.io/npm/v/@tomlbz/koishi-plugin-openai?style=flat-square)](https://www.npmjs.com/package/@tomlbz/koishi-plugin-openai)
 
 ### 欢迎使用*★,°*:.☆(￣▽￣)/$:*.°★* 
-1. [更新日志](#ver-200-更新日志)
-2. [可能的问题](#你也需要问)
+1. [更新日志](#ver-205-更新日志)
+2. [可能的问题](#你也许要问)
 3. [配置参考](#配置参考)
 4. [与ChatGPT对比](#与chatgpt对比)
+5. [有趣的对话](#有趣的对话)
 
-# Ver 2.0.4 更新日志
-1. 新增：支持`gpt-3.5-turbo`模型，并将`turbo`系列模型与其他系列模型的调用方式进行了统一。
-2. 新增：允许在`插件配置-全局设置-基础设置-nickname`中增加任意数量的`昵称`用于触发AI回复。
-3. 新增：添加消息`冷却时间`，防止API调用过于频繁导致出错（API返回一般需要几秒钟）。
-4. 新增：允许在群组中直接`回复/引用`机器人的消息触发AI回复。
-5. 新增：支持使用`pinecone`向量数据库（可以[免费注册](https://www.pinecone.io/)）存储`长期记忆`，大大提升了记忆范围。（未启用时仅在本地存储短期记忆）（注意！`OpenAI`的`Embeddings`长度为`1536`，所以你的向量数据库创建时的`索引长度（Index Dimensions）`需要是`1536`！否则`Embeddings`保存不全）。相似度算法（`Metric`）请使用默认的`Cosine`。
-6. 新增：基于`pinecone`的`关联检索`功能，可以更准确地从听过的话中获取信息。
-7. 新增：提供`WolframAlpha推理模块`来尽可能计算参考答案（可以[免费申请AppID](https://products.wolframalpha.com/api)），可以更好地回答如“`3^99等于几`”、“`sin(x^2)的积分是什么`”、“`一加仑等于多少毫升`”这类问题。需要提供`Bing翻译API`（[免费注册](https://azure.microsoft.com/en-us/pricing/details/cognitive-services/translator/)）。不填则调用`Google`（`非API`，有调用次数限制）。如果两者都不可用，推理模块就只对英语有反应了( ╯□╰ )2333
-8. 新增：利用`Bing`搜索API（可以[免费注册](https://www.microsoft.com/en-us/bing/apis/pricing)）和`google`搜索（`非API`，可能被限制）和实现`检索模块`，对回答中的`常识性无知`进行规避（可以更好地回答如“`今天星期几`”、“`现在几点了`”这类问题）。
-9. 新增：可以让机器人在群聊中发言回复消息的时候`@发送者`（可选）。
-10. 改进：简化了模型配置项，加载插件时自动选择一类模型中的`最新版`（如选择`turbo`则自动应用`gpt-3.5-turbo`）。
-11. 改进：重构了`记忆`的储存方式，使用`Embeddings`和`文本`形式分别储存`长期记忆`和`短期记忆`，提升了`记忆检索`的效率。
-12. 改进：加长了`max_token`的最大值，以适应更长的回复。（仍然不建议很长，因为`整个`会话一共`4000 token`，各种需要例子的`prompt engineering`以及对话历史占用大量`token`数）
-13. 改进：`isLog`为真时在`Log`中输出明显的提示，帮助用户判断是否调用了`计算推理`或者`搜索引擎`。
-14. 修复：修复了有时候`直呼其名`时机器人`无法回复`的问题。
-15. 修复：移除了对`openai`、`pinecone`等库的依赖，全面换用`ctx.http.post/get`等`koishi`的API，以便解决代理问题。
+# Ver 2.0.5 更新日志
+1. 特化了对`Turbo`模型的支持，显著提升了聊天时插入第三方知识的稳定性。
+2. 优先使用`google`作为搜索和翻译的来源，因为其`质量更高`，尽管需要代理。
+3. `isLog`为真时在`Log`中输出各个模块的计时信息，帮助用户判断用时瓶颈在哪个API。（在开发者这里，`OpenAI`往往占用`60%以上`的调用时间）。
+4. 优化了部分`Prompt`，显著增加了`聊天`的`稳定性`。
+5. 对优先级稍低的`API`，新增了`keywordModel`参数，可以用更便宜、更快速的`API`。推荐使用默认的`curie`系列。模型版本太低时会降低关键词稳定性，经测试，`curie`系列的稳定性和`curbo`系列不相上下。
+6. 在各个API调用的关键位置增加了更有用的报错信息。
+7. 修复了代理节点非英语地区时`testSearch`返回值出错的问题。
+8. 改进了`Pinecone`、`WolframAlpha`、`Bing / Google`的调用逻辑，避免不必要地调用，一定程度上提升了调用速度（但是瓶颈在`OpenAI`，没法子，详见控制台的计时记录）。
+9. 修复了`没有使用Bing API时，中文聊天导致乱码`的问题（Issue[#23](https://github.com/TomLBZ/koishi-plugin-openai/issues/23)）
+10. 修复了`如果代理节点是非英语地区的话testSearch会有问题`的问题（Issue[#21](https://github.com/TomLBZ/koishi-plugin-openai/issues/21)）
+11. 修复了`使用网络搜索时，机器人返回结果更偏向于回答网络搜索结果而不是实际聊天对话`的问题（Issue[#24](https://github.com/TomLBZ/koishi-plugin-openai/issues/24)）
+
+### Ver 2.0.x 新功能
+1. 支持`gpt-3.5-turbo`模型，并将`turbo`系列模型与其他系列模型的调用方式进行了统一。
+2. 允许在`插件配置-全局设置-基础设置-nickname`中增加任意数量的`昵称`用于触发AI回复。
+3. 添加消息`冷却时间`，防止API调用过于频繁导致出错（API返回一般需要几秒钟）。
+4. 允许在群组中直接`回复/引用`机器人的消息触发AI回复。
+5. 支持使用`pinecone`向量数据库（可以[免费注册](https://www.pinecone.io/)）存储`长期记忆`，大大提升了记忆范围。（未启用时仅在本地存储短期记忆）（注意！`OpenAI`的`Embeddings`长度为`1536`，所以你的向量数据库创建时的`索引长度（Index Dimensions）`需要是`1536`！否则`Embeddings`保存不全）。相似度算法（`Metric`）请使用默认的`Cosine`。
+6. 基于`pinecone`的`关联检索`功能，可以更准确地从听过的话中获取信息。
+7. 提供`WolframAlpha推理模块`来尽可能计算参考答案（可以[免费申请AppID](https://products.wolframalpha.com/api)），可以更好地回答如“`3^99等于几`”、“`sin(x^2)的积分是什么`”、“`一加仑等于多少毫升`”这类问题。需要能访问`Google`（`非API`，可能被限制，需要代理）。如果不行，则需要提供`Bing翻译API`（[免费注册](https://azure.microsoft.com/en-us/pricing/details/cognitive-services/translator/)）。如果两者都不可用，推理模块就只对英语有反应了( ╯□╰ )2333
+8. 利用`google`搜索（`非API`，可能被限制，需要代理）实现`检索模块`，对回答中的`常识性无知`进行规避（可以更好地回答时效性强的问题，比如新闻）。如果不行，可以用`Bing`搜索API（[免费注册](https://www.microsoft.com/en-us/bing/apis/pricing)）。两者都不可用时该功能关闭。
+9. 可以让机器人在群聊中发言回复消息的时候`@发送者`（可选）。
+10. 简化了模型配置项，加载插件时自动选择一类模型中的`最新版`（如选择`turbo`则自动应用`gpt-3.5-turbo`）。
+11. 重构了`记忆`的储存方式，使用`Embeddings`和`文本`形式分别储存`长期记忆`和`短期记忆`，提升了`记忆检索`的效率。
+12. 加长了`max_token`的最大值，以适应更长的回复。（仍然不建议很长，因为`整个`会话一共`4000 token`，各种需要例子的`prompt engineering`以及对话历史占用大量`token`数）
+13. `isLog`为真时在`Log`中输出明显的提示，帮助用户判断是否调用了`计算推理`或者`搜索引擎`。
+14. 修复了有时候`直呼其名`时机器人`无法回复`的问题。
+15. 移除了对`openai`、`pinecone`等库的依赖，全面换用`ctx.http.post/get`等`koishi`的API，以便解决代理问题。
 
 # 你也许要问：
 ### 关于“为什么挂了代理一直报错？”
@@ -50,9 +64,9 @@
 1. 你取得了 ta 的`随机注意`
 
 ### 关于回复比较奇怪的情况
-1. 插件刚刚开始运行时，机器人的记忆有大量空白，因此表现具有`可塑性`。经过一段时间、一定量的对话以后，随着记忆逐渐成型，机器人的说话方式也逐渐`定型`。因此建议机器人`刚刚建立`的时候`走心地`和`ta`说话，因为你最初和`ta`说的话决定了`ta`是个什么样的机器人。
+1. 插件刚刚开始运行时，机器人的记忆有大量空白，因此表现具有`随机性`与`可塑性`。尤其是连接向量数据库后，最开始会返回看似毫不相关的联想结果（不过基本上都被各种逻辑过滤掉了，如果你关注控制台就可以看到联想有多么的奇葩）。经过一段时间、一定量的对话以后，随着记忆逐渐成型，机器人的说话方式也逐渐`定型`（联想也越来越准）。因此建议机器人`刚刚建立`的时候`走心地`和`ta`说话，因为你最初和`ta`说的话决定了`ta`是个什么样的机器人。
 2. 机器人的`人设`和`示例对话`大有讲究，可以多试试。
-3. 如果回复巨慢无比，是因为你的`网络环境`不怎么好。无力了……
+3. 如果回复巨慢无比，是因为你的`网络环境`不怎么好，或者是`OpenAI`的服务器高负载，无力了……
 
 # 配置参考
 ## OpenAI 配置
@@ -60,6 +74,7 @@
 | --- | --- | --- | --- |
 | apiKey | 调用OpenAI API | - | 填写你的OpenAI API Key |
 | chatModel | 选择`语言模型` | `turbo`<br>`davinci`<br>`babbage`<br>`curie`<br>`ada` | `turbo`是效果最好的 |
+| keywordModel | 选择`关键词模型` | `curie`<br>`babbage`<br>`ada` | `curie`是效果最好的 |
 | codeModel | 选择`代码模型` | `davinci`<br>`cushman` | `davinci`是效果最好的 |
 ## 机器人身份配置
 | 参数 | 作用 | 取值范围 | 建议值 |
@@ -83,10 +98,10 @@
 | 参数 | 作用 | 取值范围 | 建议值 |
 | --- | --- | --- | --- |
 | wolframAppId | `wolfram`的`appid`，用于计算 | - | 填写你自己的appid |
-| azureTranslateKey | `Bing`翻译`API`的`密钥`，用于为`wolfram`提供翻译。不填则调用`google`翻译。如果二者均不可用，wolfram知识引擎将被禁用 | - | 填写你自己的API密钥 |
+| azureTranslateKey | `Bing`翻译`API`的`密钥`，用于在`Google`不可用时为`wolfram`提供翻译 | - | 填写你自己的API密钥 |
 | azureTranslateRegion | `Bing`翻译`API`的地区，形如`eastasia` | - | 填写你自己的`API`地区，默认是`global` |
 | searchTopK | `搜索模块`的`最大条数`，用于提升知识广度 | `1~3` | 建议`1`，提高则快速消耗`调用次数`且会让AI`分心` |
-| azureSearchKey | `Bing`搜索`API`的`密钥`，用于为`搜索模块`提供搜索 | - | 填写你自己的API密钥 |
+| azureSearchKey | `Bing`搜索`API`的`密钥`，用于在`Google`不可用时为`搜索模块`提供搜索 | - | 填写你自己的API密钥 |
 | azureSearchRegion | `Bing`搜索`API`的地区，形如`eastasia` | - | 填写你自己的`API`地区，默认是`global` |
 ## 机器人回复配置
 | 参数 | 作用 | 取值范围 | 建议值 |
@@ -107,6 +122,14 @@
 # 与ChatGPT对比
 | ChatGPT | @tomlbz/koishi-plugin-openai |
 | --- | --- |
-| ![](img/ChatGPT_01.jpg) | ![](img/Console_01.jpg)<br>![](img/Yuumu_01.jpg) |
-| ![](img/ChatGPT_02.jpg) | ![](img/Console_02.jpg)<br>![](img/Yuumu_02.jpg) |
-| ![](img/ChatGPT_03.jpg) | ![](img/Console_03.jpg)<br>![](img/Yuumu_03.jpg) |
+| ![](img/ChatGPT_Weather.jpg) | ![](img/Console_Weather.jpg)<br>![](img/Yuumu_Weather.jpg) |
+| ![](img/ChatGPT_Maths.jpg) | ![](img/Console_Maths.jpg)<br>![](img/Yuumu_Maths.jpg) |
+| ![](img/ChatGPT_Reimu.jpg) | ![](img/Console_Reimu.jpg)<br>![](img/Yuumu_Reimu.jpg) |
+
+# 有趣的对话
+从下面这张图可以看到几个功能：
+1. 大部分时候`长期记忆`都发挥着主要作用，机器人`不需要`也`不会`一直上网搜索。
+2. 当`OpenAI`的`API`报错的时候，机器人的当条回复中断了，但这并不影响它继续回复下一条消息。
+3. 机器人的联想`乱七八糟`（仔细一看发现跟话题八竿子打不着），但是话题并不很受到乱七八糟的联想的影响（费了老鼻子劲了！）。
+4. 你可以用它给他自己debug（`不`）
+![](img/Yuumu_Fun.jpg)

@@ -4,6 +4,7 @@ export interface Config {
     // used during init only
     apiKey: string
     chatModel: string
+    keywordModel: string
     codeModel: string
     isLog: boolean
     isDebug: boolean
@@ -44,11 +45,13 @@ export const Config: Schema<Config> = Schema.intersect([
         apiKey: Schema.string().required().role('secret').description('OpenAI 的 API Key'),
         chatModel: Schema.union([
             'turbo',
-            'davinci',
+            'davinci'
+        ]).description('对话模型，默认使用turbo').default('turbo'),
+        keywordModel: Schema.union([
             'curie',
             'babbage',
             'ada'
-        ]).description('对话模型，默认使用turbo').default('turbo'),
+        ]).description('关键词模型，默认使用curie').default('curie'),
         codeModel: Schema.union([
             'davinci',
             'cushman'

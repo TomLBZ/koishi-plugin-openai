@@ -15,14 +15,14 @@ export declare class Eye {
     private static fnicknames;
     private _mentionedName;
     readInput(cxt: Context, s: Session): string | null | undefined;
-    getMetadata(s: string, keywords: IDict<string>, speaker?: string): Metadata;
-    systemPrompt(s: string): IDict<string>;
+    keywords2strs(keywords: IDict<string>): string[];
+    getMetadata(s: string, keywords: string[], speaker?: string): Metadata;
+    extractNewKeywords(metadata: Metadata[], existing: string[]): string[];
+    private _systemPrompt;
+    private _botPrompt;
     userPrompt(s: string, name: string): IDict<string>;
-    botPrompt(s: string): IDict<string>;
-    keywordPrompt(s: string, name: string): IDict<string>[];
-    displayDict(idict: IDict<string>): string;
-    displayMeta(m: Metadata): string;
+    keywordPrompt(s: string): string;
+    basePrompt(s: string, name: string, history: IDict<string>[], hint: string): IDict<string>[];
     devPrint(str: string[]): string;
     samplePrompt(name: string): IDict<string>[];
-    askPrompt(s: string, name: string, related: string[], knowledge: string[], isaccurate: boolean, prevs: IDict<string>[]): IDict<string>[];
 }

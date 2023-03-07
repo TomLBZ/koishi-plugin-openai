@@ -38,12 +38,12 @@ export class Cache {
         cache.push(msg)
         this._pushcount++
         if (this._pushcount >= this._cacheSaveInterval) {
-            // sleep for 1 second to avoid too many file operations
+            // sleep for 0.2 second to avoid too many file operations
             setTimeout(() => {
                 if (this._islog) this._logger.info('Saving cache...')
                 this.save()
                 this._pushcount = 0
-            }, 1000)
+            }, 200)
         }
     }
     public get(name: string): IDict<string>[] {

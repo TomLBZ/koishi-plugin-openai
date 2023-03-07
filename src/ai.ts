@@ -1,6 +1,7 @@
 import { Context, Logger } from 'koishi'
 import { Config } from './config'
 import { IDict } from './types'
+import { get_encoding } from '@dqbd/tiktoken'
 
 /// This is a class that represents the state of the AI.
 export class AI {
@@ -10,6 +11,7 @@ export class AI {
     private _openaiKey: string
     private _allmodels: IDict<string[]>
     private _chatmodel: string
+    private _keywordmodel: string
     private _codemodel: string
     private _embedmodel: string
     private _audiomodel: string
@@ -28,13 +30,17 @@ export class AI {
         this._frequencyPenalty = config.frequencyPenalty
         this._openaiKey = config.apiKey
         this._allmodels = await this._listModels(context)
-        return this._updateModels(config.chatModel, config.codeModel)
+        return this._updateModels(config.chatModel, config.keywordModel, config.codeModel)
     }
     private _modelType(model: string) : string {
         if (model.includes('whisper')) return 'audio'
         if (model.includes('embedding')) return 'embed'
         if (model.includes('code')) return 'code'
-        if (model.includes('turbo') || model.includes('text') ) return 'chat'
+        if (model.includes('turbo')) return 'chat'
+        if (model.includes('text')) {
+            if (model.includes('davinci')) return 'chat'
+            else return 'keyword'
+        }
         return 'generic'
     }
     private async _listModels(context: Context) : Promise<IDict<string[]>> {
@@ -48,15 +54,15 @@ export class AI {
             acc[type].push(model.id)
             return acc }, {} as IDict<string[]>)
     }
-
-    private _updateModels(confchatmodel: string, confcodemodel: string) : boolean {
+    private _updateModels(confchat: string, confkey: string, confcode: string) : boolean {
         const newdict = {} as IDict<string[]>
         for (const type in this._allmodels) {
             newdict[type] = this._allmodels[type].filter((model) => {
-                if (type === 'chat') return model.includes(confchatmodel)
+                if (type === 'chat') return model.includes(confchat)
                 if (type === 'audio') return model.includes('whisper')
-                if (type === 'code') return model.includes(confcodemodel)
+                if (type === 'code') return model.includes(confcode)
                 if (type === 'embed') return model.includes('embedding')
+                if (type === 'keyword') return model.includes(confkey)
                 return false
             }).sort((a, b) => {
                 if (a.length === b.length) { // convert last char to number
@@ -71,6 +77,7 @@ export class AI {
         this._codemodel = newdict['code'][0]
         this._embedmodel = newdict['embed'][0]
         this._audiomodel = newdict['audio'][0]
+        this._keywordmodel = newdict['keyword'][0]
         if (this._islog) {
             if (this._chatmodel) this._logger.info(`OpenAI Connected. Chat model: ${this._chatmodel}`)
             else {
@@ -80,19 +87,24 @@ export class AI {
         }
         return true
     }
-
     private formTextMsg(prompt: IDict<string>[]) : string {
         return prompt.reduce((acc, p) => {
             acc += `{"role": "${p['role']}", "content": "${p['content']}", "name": "${p['name']}"}\n`
             return acc
         }, '').trim()
     }
-
     // public methods
     public async chat(prompt: IDict<string>[], context: Context) : Promise<IDict<string>> {
-        if (this._islog) this._logger.info(`Chat model: ${this._chatmodel}`)
-        if (this._chatmodel.includes('turbo')) return await this.chat_turbo(prompt, context)
-        else return await this.chat_text(prompt, context)
+        try {
+            const enc = get_encoding('cl100k_base')
+            const len = enc.encode(JSON.stringify(prompt)).length
+            if (this._islog) this._logger.info(`Chat prompt length: ${len}`)
+            if (this._chatmodel.includes('turbo')) return await this.chat_turbo(prompt, context)
+            else return await this.chat_text(prompt, context)
+        } catch (_) { 
+            this._logger.error(`OpenAI API (${this._chatmodel}) Failed`)
+            return {role: 'assistant', content: '', name: 'assistant'}
+        }
     }
     private async chat_turbo(prompt: IDict<string>[], context: Context) : Promise<IDict<string>> {
         const response = await context.http.post(
@@ -139,31 +151,66 @@ export class AI {
             return {role: 'assistant', content: content, name: 'assistant'} as IDict<string> // this._name
         }
     }
+    public async keys(prompt: string, context: Context) : Promise<string[]> {
+        try {
+            const response = await context.http.post(
+                'https://api.openai.com/v1/completions', {
+                    model: this._keywordmodel,
+                    prompt: prompt,
+                    stop: '\n',
+                    max_tokens: this._nTokens,
+                    temperature: this._temperature,
+                    presence_penalty: this._presencePenalty,
+                    frequency_penalty: this._frequencyPenalty,
+                    user: this._name // set user as bot name
+                }, { headers: {
+                    'Authorization': `Bearer ${this._openaiKey}`,
+                    'Content-Type': 'application/json'
+                }
+            })
+            let msgs: string[] = response.choices[0].text.replace('，',',').split(',').map(s => s.trim())
+            msgs = msgs.filter(s => s.includes('-')).map(s => s.replace('-', '')).filter(s => s.length > 0)
+            return msgs
+        } catch (_) { 
+            this._logger.error(`OpenAI API (${this._keywordmodel}) Failed`)
+            return [] 
+        }
+    }
     public async embed(prompt: string, context: Context) : Promise<number[]> {
-        const res = await context.http.post(
-            'https://api.openai.com/v1/embeddings', {
-                model: this._embedmodel,
-                input: prompt.trim(),
-                user: this._name // set user as bot name
-            }, { headers: {
-                'Authorization': `Bearer ${this._openaiKey}`,
-                'Content-Type': 'application/json'
-            }
-        })
-        return res.data[0].embedding
+        try {
+            const res = await context.http.post(
+                'https://api.openai.com/v1/embeddings', {
+                    model: this._embedmodel,
+                    input: prompt.trim(),
+                    user: this._name // set user as bot name
+                }, { headers: {
+                    'Authorization': `Bearer ${this._openaiKey}`,
+                    'Content-Type': 'application/json'
+                }
+            })
+            return res.data[0].embedding
+        } catch (_) {
+            this._logger.error(`OpenAI API (${this._embedmodel}) Failed`)
+            return []
+        }
     }
     public async listen(file: string, prompt: string, context: Context) : Promise<string> {
-        const res = await context.http.post(
-            'https://api.openai.com/v1/audio/transcriptions', {
-                file: file,
-                model: this._audiomodel,
-                prompt: prompt
-            }, { headers: {
-                'Authorization': `Bearer ${this._openaiKey}`,
-                'Content-Type': 'application/json'
-            }
-        })
-        return res.text
+        try {
+            const res = await context.http.post(
+                'https://api.openai.com/v1/audio/transcriptions', {
+                    file: file,
+                    model: this._audiomodel,
+                    prompt: prompt
+                }, { headers: {
+                    'Authorization': `Bearer ${this._openaiKey}`,
+                    'Content-Type': 'application/json'
+                }
+            })
+            return res.text
+        } catch (_) {
+            this._logger.error(`OpenAI API (${this._audiomodel}) Failed`)
+            return ''
+        }
     }
     public async code(prompt: string, context: Context) : Promise<string> {
         // TODO: add support for code completion

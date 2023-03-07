@@ -15,14 +15,15 @@ export declare class Soul {
     private _searchTopK;
     private _search;
     private _translate;
-    isAccurate: boolean;
+    searchMode: string;
+    translateMode: string;
     constructor();
     init(config: Config, context: Context, parentName?: string): Promise<boolean>;
     private _describeIndex;
     remember(embeddings: number[], metadata: Metadata, context: Context): Promise<void>;
-    private _recalldb;
-    recall(embeddings: number[], metadata: Metadata, context: Context): Promise<string[]>;
+    recall(embeddings: number[], keywords: string[], context: Context): Promise<Metadata[]>;
     private _wolframCheckComputable;
     private _wolframGetShortAnswer;
-    compute(query: string, context: Context): Promise<string[]>;
+    compute(query: string, context: Context): Promise<string>;
+    search(query: string, context: Context): Promise<string[]>;
 }

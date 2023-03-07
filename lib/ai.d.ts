@@ -8,6 +8,7 @@ export declare class AI {
     private _openaiKey;
     private _allmodels;
     private _chatmodel;
+    private _keywordmodel;
     private _codemodel;
     private _embedmodel;
     private _audiomodel;
@@ -24,6 +25,7 @@ export declare class AI {
     chat(prompt: IDict<string>[], context: Context): Promise<IDict<string>>;
     private chat_turbo;
     private chat_text;
+    keys(prompt: string, context: Context): Promise<string[]>;
     embed(prompt: string, context: Context): Promise<number[]>;
     listen(file: string, prompt: string, context: Context): Promise<string>;
     code(prompt: string, context: Context): Promise<string>;

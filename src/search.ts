@@ -16,13 +16,14 @@ export class Search {
         this._islog = config.isLog
         this._azureKey = config.azureSearchKey
         this._azureRegion = config.azureSearchRegion
-        this.mode = this._azureKey ? 'bing' : await this.testSearch(context) ? 'google' : 'none' //'baidu'
+        this.mode = await this.testSearch(context) ? 'Google' : this._azureKey ? 'Bing' : 'None' //'baidu'
     }
     private async testSearch(context: Context) : Promise<boolean> {
         const url = 'https://www.google.com/search?q=Who+is+Tom'
-        const res = await context.http.get(url) //fetch(url)
-        const text = String(res)
-        return text.includes('Google Search') //res.ok
+        try {
+            const res = await context.http.get(url) //fetch(url)
+            return String(res).includes('<!doctype html>')
+        } catch (_) { return false }
     }
     private _reduceElement(elem: Element, islenfilter: boolean = false) : void { // reduces nesting of single child elements
         let child = elem
@@ -144,43 +145,53 @@ export class Search {
         return results
     }
     private async googleSearch(query: string, topk: number, context: Context) : Promise<string[]> {
-        const url = `https://www.google.com/search?q=${encodeURIComponent(query)}`
-        const resp = await context.http.get<Response>(url)
-        const restext = String(resp) //await resp.text()
-        const htmldom = new JSDOM(restext).window.document
-        const main = htmldom.querySelector('#main')
-        if (!main) {
-            if (this._islog) this._logger.info('Google search failed, maybe blocked by Google')
+        try {
+            const url = `https://www.google.com/search?q=${encodeURIComponent(query)}`
+            const resp = await context.http.get<Response>(url)
+            const restext = String(resp) //await resp.text()
+            const htmldom = new JSDOM(restext).window.document
+            const main = htmldom.querySelector('#main')
+            if (!main) {
+                if (this._islog) this._logger.info('Google search failed, maybe blocked by Google')
+                return []
+            }
+            const tobeRemoved = main.querySelectorAll('script,noscript,style,meta,button,input,img,svg,canvas,header,footer,video,audio,embed')
+            tobeRemoved.forEach(e => e.remove())
+            for (const e of main.children) this._reduceElement(e)
+            this._keepCommonClass(main)
+            this._reduceGoogleItems(main)
+            const classnames = '.'.concat(main.children[0].className.replace(/ /g, '.'))
+            if (!classnames.length || classnames.length == 0) return []
+            const dictres = this._parseResults(main)
+            const res = dictres['description'].slice(0, topk)
+            return res.length ? res : []
+        } catch (_) {
+            this._logger.error('Error: Google Search Failed')
             return []
         }
-        const tobeRemoved = main.querySelectorAll('script,noscript,style,meta,button,input,img,svg,canvas,header,footer,video,audio,embed')
-        tobeRemoved.forEach(e => e.remove())
-        for (const e of main.children) this._reduceElement(e)
-        this._keepCommonClass(main)
-        this._reduceGoogleItems(main)
-        const classnames = '.'.concat(main.children[0].className.replace(/ /g, '.'))
-        if (!classnames.length || classnames.length == 0) return []
-        const dictres = this._parseResults(main)
-        const res = dictres['description'].slice(0, topk)
-        return res.length ? res : []
     }
     private async baiduSearch(query: string, topk: number, context: Context) : Promise<string[]> {
-        const url = `https://www.baidu.com/s?wd=${encodeURIComponent(query)}&cl=3`
-        const res = await context.http.get<Response>(url)
-        const restext = await res.text()
-        const htmldom = new JSDOM(restext).window.document
-        const main = htmldom.querySelector('#content_left')
-        if (!main) {
-            if (this._islog) this._logger.info('Baidu search failed, maybe too many requests')
+        try {
+            const url = `https://www.baidu.com/s?wd=${encodeURIComponent(query)}&cl=3`
+            const res = await context.http.get<Response>(url)
+            const restext = await res.text()
+            const htmldom = new JSDOM(restext).window.document
+            const main = htmldom.querySelector('#content_left')
+            if (!main) {
+                if (this._islog) this._logger.info('Baidu search failed, maybe too many requests')
+                return []
+            }
+            const tobeRemoved = main.querySelectorAll('script,noscript,style,meta,button,input,img,svg,canvas,header,footer,video,audio,embed')
+            tobeRemoved.forEach(e => e.remove())
+            for (const e of main.children) this._reduceElement(e)
+            writeFileSync('cache/baidu.html', main.outerHTML)
+            for (const e of main.children) this._keepClassNames(e, 'c-title', 'c-gap-top-small')
+            writeFileSync('cache/baidu-class.html', main.outerHTML)
+            return []
+        } catch (_) {
+            this._logger.error('Error: Baidu Search Failed')
             return []
         }
-        const tobeRemoved = main.querySelectorAll('script,noscript,style,meta,button,input,img,svg,canvas,header,footer,video,audio,embed')
-        tobeRemoved.forEach(e => e.remove())
-        for (const e of main.children) this._reduceElement(e)
-        writeFileSync('cache/baidu.html', main.outerHTML)
-        for (const e of main.children) this._keepClassNames(e, 'c-title', 'c-gap-top-small')
-        writeFileSync('cache/baidu-class.html', main.outerHTML)
-        return []
     }
     private _isValidString(str: string) : boolean {
         if (!str || str.length === 0) return false // null or undefined
@@ -188,34 +199,38 @@ export class Search {
         return str.trim().length > 0
     }
     private async bingSearch(query: string, topk: number, context: Context) : Promise<string[]> {
-        if (!this._isValidString(query)) return []
-        const resfilter = 'Computation,Webpages'
-        const url = `https://api.bing.microsoft.com/v7.0/search?q=${encodeURIComponent(query)}&count=${topk}&responseFilter=${resfilter}`
-        const res = await context.http.get<any>(url, {
-            headers: {
-                'Ocp-Apim-Subscription-Key': this._azureKey,
-                'Ocp-Apim-Subscription-Region': this._azureRegion
+        try {
+            const resfilter = 'Computation,Webpages'
+            const url = `https://api.bing.microsoft.com/v7.0/search?q=${encodeURIComponent(query)}&count=${topk}&responseFilter=${resfilter}`
+            const res = await context.http.get<any>(url, {
+                headers: {
+                    'Ocp-Apim-Subscription-Key': this._azureKey,
+                    'Ocp-Apim-Subscription-Region': this._azureRegion
+                }
+            }) // is json
+            const webpages = res.webPages
+            const computations = res.computation
+            if (!webpages && !computations) return []
+            const allres = []
+            if (computations) {
+                const res2 = computations.map(v => `${v.expression}=${v.value}`)
+                allres.push(...res2)
             }
-        }) // is json
-        const webpages = res.webPages
-        const computations = res.computation
-        if (!webpages && !computations) return []
-        const allres = []
-        if (webpages) {
-            const value = webpages.value
-            const res1 = value ? value.map(v => v.snippet) : []
-            allres.push(...res1)
+            if (webpages) {
+                const value = webpages.value
+                const res1 = value ? value.map(v => v.snippet) : []
+                allres.push(...res1)
+            }
+            return allres
+        } catch (_) {
+            this._logger.error('Error: Bing Search Failed')
+            return []
         }
-        if (computations) {
-            const res2 = computations.map(v => `${v.expression}=${v.value}`)
-            allres.push(...res2)
-        }
-        return allres
     }
     public async search(query: string, topk: number, context: Context) : Promise<string[]> {
-        if (this._islog) this._logger.info(`Knowledge Mode: ${this.mode}`)
-        if (this.mode == 'google') return await this.googleSearch(query, topk, context)
-        if (this.mode == 'bing') return await this.bingSearch(query, topk, context)
+        if (!this._isValidString(query)) return []
+        if (this.mode == 'Google') return await this.googleSearch(query, topk, context)
+        if (this.mode == 'Bing') return await this.bingSearch(query, topk, context)
         //if (this.mode == 'baidu') return await this.baiduSearch(query, topk)
         return []
     }
