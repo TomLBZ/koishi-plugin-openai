@@ -2,7 +2,7 @@
   "name": "@tomlbz/koishi-plugin-openai",
   "description": "Calls OpenAI language models for Koishi.js",
   "private": false,
-  "version": "2.0.5",
+  "version": "2.0.6",
   "author": "TomLBZ <libozhao142857@hotmail.com>",
   "maintainers": [
     "TomLBZ <libozhao142857@hotmail.com>"

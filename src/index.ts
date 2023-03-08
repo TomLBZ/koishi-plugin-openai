@@ -38,15 +38,15 @@ export function apply(ctx: Context, config: Config) {
   //   return next()
   // }, true)
   ctx.middleware(async (session, next) => {
+    const input = eye.readInput(ctx, session)
+    const username = session.userId // only alphanumeric characters are allowed!!!
+    if (!input || input.length === 0) return next()
     const now = Date.now()
     if (now - lastTime < config.msgCooldown * 1000) {
       if (config.isLog) logger.info(`Cooldown: ${now - lastTime}ms < ${config.msgCooldown * 1000}ms, skipping...`)
       return next()
     }
     lastTime = now
-    const input = eye.readInput(ctx, session)
-    const username = session.userId // only alphanumeric characters are allowed!!!
-    if (!input) return next()
     if (!cache.get(username)) { // if empty cache, fill it with sample prompts
       const sampleprompts = eye.samplePrompt(username)
       sampleprompts.forEach(p => cache.push(username, p))
@@ -122,11 +122,11 @@ export function apply(ctx: Context, config: Config) {
     t.start = Date.now()
     // ======== 更新记忆 ========
     cache.push(username, eye.userPrompt(input, username)) // 将原始输入保存到短期记忆
-    cache.push(username, reply) // 将回复保存到短期记忆
+    if (reply['content'] && reply['content'].length > 0) cache.push(username, reply) // 将回复保存到短期记忆
     t.cache += Date.now() - t.start
     t.start = Date.now()
     await soul.remember(iembeddings, imetadata, ctx) // 用原始元数据存储输入的向量
-    await soul.remember(rembeddings, rtmetadata, ctx) // 用回复元数据存储回复的向量
+    if (reply['content'] && reply['content'].length > 0) await soul.remember(rembeddings, rtmetadata, ctx) // 用回复元数据存储回复的向量
     t.pinecone += Date.now() - t.start
     // ======== 打印统计信息 ========
     if (config.isLog) {

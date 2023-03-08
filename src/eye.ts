@@ -45,7 +45,7 @@ export class Eye {
         Math.random() < this._randomReplyFrequency ? 3 : 0 // 随机回复 // 不回复
         if (state === 0) return null
         const input = s.content.replace(/<[^>]*>/g, '') // 去除XML元素
-        if (input === '') return null
+        if (!input || input === '') return null
         const statename = state == 1 ? 'appelled' : 
         state == 2 ? 'name called' : state == 3 ? 'random reply' : 'private message'
         if (this._islog) this._logger.info(`${statename}, ${s.userId}: ${input}`)

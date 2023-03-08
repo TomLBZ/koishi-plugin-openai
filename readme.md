@@ -4,13 +4,13 @@
 [![npm](https://img.shields.io/npm/v/@tomlbz/koishi-plugin-openai?style=flat-square)](https://www.npmjs.com/package/@tomlbz/koishi-plugin-openai)
 
 ### 欢迎使用*★,°*:.☆(￣▽￣)/$:*.°★* 
-1. [更新日志](#ver-205-更新日志)
+1. [更新日志](#ver-206-更新日志)
 2. [可能的问题](#你也许要问)
 3. [配置参考](#配置参考)
 4. [与ChatGPT对比](#与chatgpt对比)
 5. [有趣的对话](#有趣的对话)
 
-# Ver 2.0.5 更新日志
+# Ver 2.0.6 更新日志
 1. 特化了对`Turbo`模型的支持，显著提升了聊天时插入第三方知识的稳定性。
 2. 优先使用`google`作为搜索和翻译的来源，因为其`质量更高`，尽管需要代理。
 3. `isLog`为真时在`Log`中输出各个模块的计时信息，帮助用户判断用时瓶颈在哪个API。（在开发者这里，`OpenAI`往往占用`60%以上`的调用时间）。
@@ -22,6 +22,8 @@
 9. 修复了`没有使用Bing API时，中文聊天导致乱码`的问题（Issue[#23](https://github.com/TomLBZ/koishi-plugin-openai/issues/23)）
 10. 修复了`如果代理节点是非英语地区的话testSearch会有问题`的问题（Issue[#21](https://github.com/TomLBZ/koishi-plugin-openai/issues/21)）
 11. 修复了`使用网络搜索时，机器人返回结果更偏向于回答网络搜索结果而不是实际聊天对话`的问题（Issue[#24](https://github.com/TomLBZ/koishi-plugin-openai/issues/24)）
+12. 修复了冷却时间被本来不会触发的消息重置的问题
+13. 修复了偶尔向数据库保存空内容向量的问题
 
 ### Ver 2.0.x 新功能
 1. 支持`gpt-3.5-turbo`模型，并将`turbo`系列模型与其他系列模型的调用方式进行了统一。
