@@ -8,24 +8,36 @@ export class Search {
     public mode: string
     private _logger: Logger
     private _islog: boolean
+    private _googleSearchAdress: string
     private _azureKey: string
     private _azureRegion: string
     constructor() { }
-    public async init(config: Config, context: Context, parentName: string = '@tomlbz/openai') : Promise<void> {
+
+    public async init(config: Config, context: Context, parentName: string = '@tomlbz/openai'): Promise<void> {
         this._logger = new Logger(parentName + '/search')
         this._islog = config.isLog
         this._azureKey = config.azureSearchKey
         this._azureRegion = config.azureSearchRegion
-        this.mode = await this.testSearch(context) ? 'Google' : this._azureKey ? 'Bing' : 'None' //'baidu'
+        this._googleSearchAdress = config.googleSearchAdress
+        this.mode = await this.testSearch(context) ? 'Google' : this._azureKey ? 'Bing' : 'Baidu'
     }
-    private async testSearch(context: Context) : Promise<boolean> {
-        const url = 'https://www.google.com/search?q=Who+is+Tom'
+
+    private _currentGoogleSearchBaseUrl(): string {
+        if (this._googleSearchAdress == null) {
+            return "https://www.google.com"
+        }
+        return "https://www.google.com"
+        // return this._googleSearchAdress
+    }
+
+    private async testSearch(context: Context): Promise<boolean> {
+        const url = this._currentGoogleSearchBaseUrl() + '/search?q=Who+is+Tom'
         try {
             const res = await context.http.get(url) //fetch(url)
             return String(res).includes('<!doctype html>')
         } catch (_) { return false }
     }
-    private _reduceElement(elem: Element, islenfilter: boolean = false) : void { // reduces nesting of single child elements
+    private _reduceElement(elem: Element, islenfilter: boolean = false): void { // reduces nesting of single child elements
         let child = elem
         let whilecount = 0
         while (child.children.length > 0) {
@@ -52,7 +64,7 @@ export class Search {
         }
         if (child !== elem) elem.parentElement.replaceChild(child, elem)
     }
-    private _getCommonClassName(elements: Iterable<Element>) : string {
+    private _getCommonClassName(elements: Iterable<Element>): string {
         const classnames = {}
         for (const e of elements) {
             const classname = e.className
@@ -66,7 +78,7 @@ export class Search {
         if (!keys || keys.length === 0) return ''
         return keys.reduce((a, b) => classnames[a] > classnames[b] ? a : b)
     }
-    private _keepCommonClass(elem: Element) : void { // removes all elements that do not have the most common classname
+    private _keepCommonClass(elem: Element): void { // removes all elements that do not have the most common classname
         if (!elem.children.length || elem.children.length === 0) return
         const common = this._getCommonClassName(elem.children)
         for (let i = elem.children.length - 1; i >= 0; i--) {
@@ -74,7 +86,7 @@ export class Search {
             if (e.className !== common) e.remove()
         }
     }
-    private _reduceGoogleItems(main: Element) : void {
+    private _reduceGoogleItems(main: Element): void {
         for (let i = main.children.length - 1; i >= 0; i--) {
             const e = main.children[i]
             if (e.children.length === 2) { // if the first child has a h3 element
@@ -89,16 +101,16 @@ export class Search {
             e.remove()
         }
     }
-    private _checkClassName(elem: Element, classnames: string[]) : boolean {
+    private _checkClassName(elem: Element, classnames: string[]): boolean {
         for (const classname of classnames) if (elem.className.includes(classname) || classname.includes(elem.className)) return true
         return false
     }
-    private _checkClassNames(elem: Element, titlename: string, contentname: string) : boolean {
+    private _checkClassNames(elem: Element, titlename: string, contentname: string): boolean {
         if (elem.children.length !== 2) return false
         const names = [titlename, contentname]
         return this._checkClassName(elem.children[0], names) && this._checkClassName(elem.children[1], names)
     }
-    private _keepClassNames(elem: Element, titlename: string, contentname: string) : void {
+    private _keepClassNames(elem: Element, titlename: string, contentname: string): void {
         if (elem.children.length === 0) return // c-container has no children
         let whilecount = 0
         while (!this._checkClassNames(elem, titlename, contentname)) {
@@ -122,7 +134,7 @@ export class Search {
             }
         }
     }
-    private _parseResults(elem: Element) : IDict<string[]> {
+    private _parseResults(elem: Element): IDict<string[]> {
         const col1 = []
         const col2 = []
         for (const e of elem.children) {
@@ -133,7 +145,7 @@ export class Search {
         }
         const classname1 = this._getCommonClassName(col1)
         const classname2 = this._getCommonClassName(col2)
-        const results : IDict<string[]> = {'title': [], 'description': []}
+        const results: IDict<string[]> = { 'title': [], 'description': [] }
         for (let i = 0; i < col1.length; i++) {
             const e1 = col1[i]
             const e2 = col2[i]
@@ -144,16 +156,16 @@ export class Search {
         }
         return results
     }
-    private async googleSearch(query: string, topk: number, context: Context) : Promise<string[]> {
+    private async googleSearch(query: string, topk: number, context: Context): Promise<string[]> {
         try {
-            const url = `https://www.google.com/search?q=${encodeURIComponent(query)}`
+            const url = this._currentGoogleSearchBaseUrl() + `/search?q=${encodeURIComponent(query)}`
             const resp = await context.http.get<Response>(url)
             const restext = String(resp) //await resp.text()
             const htmldom = new JSDOM(restext).window.document
             const main = htmldom.querySelector('#main')
             if (!main) {
                 if (this._islog) this._logger.info('Google search failed, maybe blocked by Google')
-                return []
+                return await this.baiduSearch(query, topk, context)
             }
             const tobeRemoved = main.querySelectorAll('script,noscript,style,meta,button,input,img,svg,canvas,header,footer,video,audio,embed')
             tobeRemoved.forEach(e => e.remove())
@@ -165,40 +177,47 @@ export class Search {
             const dictres = this._parseResults(main)
             const res = dictres['description'].slice(0, topk)
             return res.length ? res : []
-        } catch (_) {
+        } catch (message) {
+            this._logger.error(message)
             this._logger.error('Error: Google Search Failed')
             return []
         }
     }
-    private async baiduSearch(query: string, topk: number, context: Context) : Promise<string[]> {
+    private async baiduSearch(query: string, topk: number, context: Context): Promise<string[]> {
         try {
-            const url = `https://www.baidu.com/s?wd=${encodeURIComponent(query)}&cl=3`
-            const res = await context.http.get<Response>(url)
-            const restext = await res.text()
-            const htmldom = new JSDOM(restext).window.document
-            const main = htmldom.querySelector('#content_left')
-            if (!main) {
-                if (this._islog) this._logger.info('Baidu search failed, maybe too many requests')
-                return []
+            const encodedQuery = encodeURIComponent(query);
+            const url = `https://www.bing.com/search?q=${encodedQuery}`;
+
+            const resp = await context.http.get<Response>(url)
+            const text = await resp.text()
+
+            const dom = new JSDOM(text);
+
+            let res = [];
+            const listItems = dom.window.document.querySelectorAll('.b_algo');
+
+            for (const item of listItems) {
+                const desc = item.querySelector('.b_caption p')?.textContent?.trim() || '';
+
+                res.push(
+                    desc
+                );
             }
-            const tobeRemoved = main.querySelectorAll('script,noscript,style,meta,button,input,img,svg,canvas,header,footer,video,audio,embed')
-            tobeRemoved.forEach(e => e.remove())
-            for (const e of main.children) this._reduceElement(e)
-            writeFileSync('cache/baidu.html', main.outerHTML)
-            for (const e of main.children) this._keepClassNames(e, 'c-title', 'c-gap-top-small')
-            writeFileSync('cache/baidu-class.html', main.outerHTML)
-            return []
-        } catch (_) {
+
+            res = res.slice(0, topk)
+            return res.length ? res : [];
+        } catch (error) {
+            this._logger.error(error);
             this._logger.error('Error: Baidu Search Failed')
             return []
         }
     }
-    private _isValidString(str: string) : boolean {
+    private _isValidString(str: string): boolean {
         if (!str || str.length === 0) return false // null or undefined
         if (str === ' ') return true // whitespace
         return str.trim().length > 0
     }
-    private async bingSearch(query: string, topk: number, context: Context) : Promise<string[]> {
+    private async bingSearch(query: string, topk: number, context: Context): Promise<string[]> {
         try {
             const resfilter = 'Computation,Webpages'
             const url = `https://api.bing.microsoft.com/v7.0/search?q=${encodeURIComponent(query)}&count=${topk}&responseFilter=${resfilter}`
@@ -227,11 +246,11 @@ export class Search {
             return []
         }
     }
-    public async search(query: string, topk: number, context: Context) : Promise<string[]> {
+    public async search(query: string, topk: number, context: Context): Promise<string[]> {
         if (!this._isValidString(query)) return []
         if (this.mode == 'Google') return await this.googleSearch(query, topk, context)
         if (this.mode == 'Bing') return await this.bingSearch(query, topk, context)
-        //if (this.mode == 'baidu') return await this.baiduSearch(query, topk)
+        if (this.mode == 'Baidu') return await this.baiduSearch(query, topk, context)
         return []
     }
 }

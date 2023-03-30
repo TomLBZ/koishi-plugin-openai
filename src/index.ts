@@ -16,7 +16,7 @@ const ai: AI = new AI()
 const soul: Soul = new Soul()
 const eye: Eye = new Eye()
 const cache: Cache = new Cache()
-let lastTime = Date.now()
+let lastTime = 0
 
 export function apply(ctx: Context, config: Config) {
   ctx.on('ready', async () => {
@@ -42,7 +42,8 @@ export function apply(ctx: Context, config: Config) {
     const username = session.userId // only alphanumeric characters are allowed!!!
     if (!input || input.length === 0) return next()
     const now = Date.now()
-    if (now - lastTime < config.msgCooldown * 1000) {
+    if (lastTime == 0 || now - lastTime < config.msgCooldown * 1000) {
+      if (lastTime == 0) logger.info("init.....")
       if (config.isLog) logger.info(`Cooldown: ${now - lastTime}ms < ${config.msgCooldown * 1000}ms, skipping...`)
       return next()
     }
@@ -112,7 +113,7 @@ export function apply(ctx: Context, config: Config) {
     } // ======== 生成回复 ========
     if (config.isDebug) logger.info(`Main Prompt: ${JSON.stringify(mainprompt)}`)
     const reply = await ai.chat(mainprompt, ctx) // 获取回复
-    reply['content'] = reply['content'].replace(/\n/g, '。') // 将回复中的换行符替换成句号
+    // reply['content'] = reply['content'].replace(/\n/g, '。') // 将回复中的换行符替换成句号
     const rtext = reply['content'] // 获取回复的文本
     const rembeddings = await ai.embed(rtext, ctx) // 计算回复的向量
     const rkeywords = await ai.keys(eye.keywordPrompt(rtext), ctx) // 获取关键词数组
@@ -122,6 +123,7 @@ export function apply(ctx: Context, config: Config) {
     t.start = Date.now()
     // ======== 更新记忆 ========
     cache.push(username, eye.userPrompt(input, username)) // 将原始输入保存到短期记忆
+    reply['content'] = reply['content'].trim()
     if (reply['content'] && reply['content'].length > 0) cache.push(username, reply) // 将回复保存到短期记忆
     t.cache += Date.now() - t.start
     t.start = Date.now()
@@ -130,8 +132,7 @@ export function apply(ctx: Context, config: Config) {
     t.pinecone += Date.now() - t.start
     // ======== 打印统计信息 ========
     if (config.isLog) {
-      logger.info(`Pinecone: ${t.pinecone}ms, Wolfram: ${t.wolfram}ms, ${soul.searchMode}: ${
-        t.search}ms, OpenAI: ${t.openai}ms, Cache: ${t.cache}ms`)
+      logger.info(`Pinecone: ${t.pinecone}ms, Wolfram: ${t.wolfram}ms, ${soul.searchMode}: ${t.search}ms, OpenAI: ${t.openai}ms, Cache: ${t.cache}ms`)
       const totaltime = t.pinecone + t.wolfram + t.search + t.openai + t.cache
       const maxtime = Math.max(t.pinecone, t.wolfram, t.search, t.openai, t.cache)
       const maxlabel = Object.keys(t).find(key => t[key] === maxtime)

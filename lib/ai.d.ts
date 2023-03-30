@@ -9,6 +9,7 @@ export declare class AI {
     private _allmodels;
     private _chatmodel;
     private _keywordmodel;
+    private _apiAdress;
     private _codemodel;
     private _embedmodel;
     private _audiomodel;
@@ -18,6 +19,7 @@ export declare class AI {
     private _frequencyPenalty;
     constructor();
     init(config: Config, context: Context, parentName?: string): Promise<boolean>;
+    private _currentApiUrl;
     private _modelType;
     private _listModels;
     private _updateModels;

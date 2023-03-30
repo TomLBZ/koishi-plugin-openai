@@ -12,6 +12,7 @@ export class AI {
     private _allmodels: IDict<string[]>
     private _chatmodel: string
     private _keywordmodel: string
+    private _apiAdress: string
     private _codemodel: string
     private _embedmodel: string
     private _audiomodel: string
@@ -29,9 +30,15 @@ export class AI {
         this._presencePenalty = config.presencePenalty
         this._frequencyPenalty = config.frequencyPenalty
         this._openaiKey = config.apiKey
+        this._apiAdress = config.apiAdress
         this._allmodels = await this._listModels(context)
         return this._updateModels(config.chatModel, config.keywordModel, config.codeModel)
     }
+
+    private _currentApiUrl(postfix: string): string {
+        return this._apiAdress + "/" + postfix
+    }
+
     private _modelType(model: string) : string {
         if (model.includes('whisper')) return 'audio'
         if (model.includes('embedding')) return 'embed'
@@ -46,7 +53,7 @@ export class AI {
     private async _listModels(context: Context) : Promise<IDict<string[]>> {
         const excludeModels = ['deprecated', 'beta', 'if', 'search', 'similarity', 'edit', 'insert', ':']
         const response = await context.http.get(
-            'https://api.openai.com/v1/models', { headers: {'Authorization': `Bearer ${this._openaiKey}`}})
+            this._currentApiUrl('models'), { headers: {'Authorization': `Bearer ${this._openaiKey}`}})
         return response.data.filter((model) => {
             return !excludeModels.some((exclude) => model.id.includes(exclude))
         }).reduce((acc, model) => { const type = this._modelType(model.id)
@@ -74,7 +81,7 @@ export class AI {
             })
         }
         this._chatmodel = newdict['chat'][0]
-        this._codemodel = newdict['code'][0]
+        //this._codemodel = newdict['code'][0]
         this._embedmodel = newdict['embed'][0]
         this._audiomodel = newdict['audio'][0]
         this._keywordmodel = newdict['keyword'][0]
@@ -108,7 +115,7 @@ export class AI {
     }
     private async chat_turbo(prompt: IDict<string>[], context: Context) : Promise<IDict<string>> {
         const response = await context.http.post(
-            'https://api.openai.com/v1/chat/completions', {
+            this._currentApiUrl('chat/completions'), {
                 model: this._chatmodel,
                 messages: prompt as any,
                 max_tokens: this._nTokens,
@@ -122,11 +129,11 @@ export class AI {
             }
         })
         const msg = response.choices[0].message
-        return {role: msg.role, content: msg.content.trim(), name: 'assistant'} // this._name
+        return {role: msg.role, content: msg.content, name: 'assistant'} // this._name
     }
     private async chat_text(prompt: IDict<string>[], context: Context) : Promise<IDict<string>> {
         const response = await context.http.post(
-            'https://api.openai.com/v1/completions', {
+            this._currentApiUrl('completions'), {
                 model: this._chatmodel,
                 prompt: this.formTextMsg(prompt),
                 stop: '}',
@@ -154,7 +161,7 @@ export class AI {
     public async keys(prompt: string, context: Context) : Promise<string[]> {
         try {
             const response = await context.http.post(
-                'https://api.openai.com/v1/completions', {
+                this._currentApiUrl('completions'), {
                     model: this._keywordmodel,
                     prompt: prompt,
                     stop: '\n',
@@ -179,7 +186,7 @@ export class AI {
     public async embed(prompt: string, context: Context) : Promise<number[]> {
         try {
             const res = await context.http.post(
-                'https://api.openai.com/v1/embeddings', {
+                this._currentApiUrl('embeddings'), {
                     model: this._embedmodel,
                     input: prompt.trim(),
                     user: this._name // set user as bot name
@@ -197,7 +204,7 @@ export class AI {
     public async listen(file: string, prompt: string, context: Context) : Promise<string> {
         try {
             const res = await context.http.post(
-                'https://api.openai.com/v1/audio/transcriptions', {
+                this._currentApiUrl('audio/transcriptions'), {
                     file: file,
                     model: this._audiomodel,
                     prompt: prompt

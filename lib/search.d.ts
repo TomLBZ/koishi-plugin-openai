@@ -4,10 +4,12 @@ export declare class Search {
     mode: string;
     private _logger;
     private _islog;
+    private _googleSearchAdress;
     private _azureKey;
     private _azureRegion;
     constructor();
     init(config: Config, context: Context, parentName?: string): Promise<void>;
+    private _currentGoogleSearchBaseUrl;
     private testSearch;
     private _reduceElement;
     private _getCommonClassName;
