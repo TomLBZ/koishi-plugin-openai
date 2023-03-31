@@ -29,7 +29,6 @@ export interface Config {
     cacheSaveDir: string;
     azureSearchKey: string;
     azureSearchRegion: string;
-    googleSearchAdress: string;
     searchTopK: number;
     azureTranslateKey: string;
     azureTranslateRegion: string;

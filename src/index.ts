@@ -43,8 +43,15 @@ export function apply(ctx: Context, config: Config) {
     if (!input || input.length === 0) return next()
     const now = Date.now()
     if (lastTime == 0 || now - lastTime < config.msgCooldown * 1000) {
-      if (lastTime == 0) logger.info("init.....")
+      if (lastTime == 0) { 
+        logger.info("init.....")
+        const rtext = "还在初始化中...."
+        session.send(config.isReplyWithAt && session.subtype === 'group' ? h('at', { id: session.userId }) + rtext : rtext) // 按情况@发送者
+        return next()
+      }
       if (config.isLog) logger.info(`Cooldown: ${now - lastTime}ms < ${config.msgCooldown * 1000}ms, skipping...`)
+      const rtext = "冷却中...."
+      session.send(config.isReplyWithAt && session.subtype === 'group' ? h('at', { id: session.userId }) + rtext : rtext) // 按情况@发送者)
       return next()
     }
     lastTime = now
@@ -142,4 +149,26 @@ export function apply(ctx: Context, config: Config) {
     if (config.isLog) logger.info(`Reply: ${rtext}`)
     return config.isReplyWithAt && session.subtype === 'group' ? h('at', { id: session.userId }) + rtext : rtext // 按情况@发送者
   })
+
+
+  ctx.command('reset', '删除关于你的记忆')
+    .alias('重置')
+    .action(async ({session}) => {
+      cache.remove(session.userId);
+      if (config.isLog) {
+        logger.info('reset memory:', session.username, '');
+      }
+      const rtext = '记忆已清除'
+      await session.send(config.isReplyWithAt && session.subtype === 'group' ? h('at', { id: session.userId }) + rtext : rtext) // 按情况@发送者)
+    });
+
+
+    // ctx.command('balance', '查询余额')
+    // .alias('余额')
+    // .action(async ({session}) => {
+    //   const balance = await ai.getBalance(ctx);
+    //   const rtext = `余额：$${balance.total_used.toFixed(2)} / $${balance.total_granted.toFixed(2)}\n已用 ${(balance.total_used / balance.total_granted * 100).toFixed(2)}%`
+    //   await session.send(config.isReplyWithAt && session.subtype === 'group' ? h('at', { id: session.userId }) + rtext : rtext) // 按情况@发送者)
+    // });
+
 }

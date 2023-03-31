@@ -20,8 +20,8 @@ export class AI {
     private _temperature: number
     private _presencePenalty: number
     private _frequencyPenalty: number
-    constructor() {}
-    public async init(config: Config, context: Context, parentName: string = '@tomlbz/openai') : Promise<boolean> {
+    constructor() { }
+    public async init(config: Config, context: Context, parentName: string = '@tomlbz/openai'): Promise<boolean> {
         this._islog = config.isLog
         this._name = config.botName
         this._logger = new Logger(parentName + '/ai')
@@ -39,7 +39,7 @@ export class AI {
         return this._apiAdress + "/" + postfix
     }
 
-    private _modelType(model: string) : string {
+    private _modelType(model: string): string {
         if (model.includes('whisper')) return 'audio'
         if (model.includes('embedding')) return 'embed'
         if (model.includes('code')) return 'code'
@@ -50,18 +50,20 @@ export class AI {
         }
         return 'generic'
     }
-    private async _listModels(context: Context) : Promise<IDict<string[]>> {
+    private async _listModels(context: Context): Promise<IDict<string[]>> {
         const excludeModels = ['deprecated', 'beta', 'if', 'search', 'similarity', 'edit', 'insert', ':']
         const response = await context.http.get(
-            this._currentApiUrl('models'), { headers: {'Authorization': `Bearer ${this._openaiKey}`}})
+            this._currentApiUrl('models'), { headers: { 'Authorization': `Bearer ${this._openaiKey}` } })
         return response.data.filter((model) => {
             return !excludeModels.some((exclude) => model.id.includes(exclude))
-        }).reduce((acc, model) => { const type = this._modelType(model.id)
+        }).reduce((acc, model) => {
+            const type = this._modelType(model.id)
             if (!acc[type]) acc[type] = []
             acc[type].push(model.id)
-            return acc }, {} as IDict<string[]>)
+            return acc
+        }, {} as IDict<string[]>)
     }
-    private _updateModels(confchat: string, confkey: string, confcode: string) : boolean {
+    private _updateModels(confchat: string, confkey: string, confcode: string): boolean {
         const newdict = {} as IDict<string[]>
         for (const type in this._allmodels) {
             newdict[type] = this._allmodels[type].filter((model) => {
@@ -94,55 +96,67 @@ export class AI {
         }
         return true
     }
-    private formTextMsg(prompt: IDict<string>[]) : string {
+    private formTextMsg(prompt: IDict<string>[]): string {
         return prompt.reduce((acc, p) => {
             acc += `{"role": "${p['role']}", "content": "${p['content']}", "name": "${p['name']}"}\n`
             return acc
         }, '').trim()
     }
+
     // public methods
-    public async chat(prompt: IDict<string>[], context: Context) : Promise<IDict<string>> {
+    public async getBalance(context: Context): Promise<Balance> {
+        return await context.http.get('https://api.openai.com/dashboard/billing/credit_grants', {
+            headers: {
+                'Authorization': `Bearer ${this._openaiKey}`,
+                'Content-Type': 'application/json'
+            }
+        });
+    }
+
+    public async chat(prompt: IDict<string>[], context: Context): Promise<IDict<string>> {
         try {
             const enc = get_encoding('cl100k_base')
             const len = enc.encode(JSON.stringify(prompt)).length
             if (this._islog) this._logger.info(`Chat prompt length: ${len}`)
             if (this._chatmodel.includes('turbo')) return await this.chat_turbo(prompt, context)
             else return await this.chat_text(prompt, context)
-        } catch (_) { 
+        } catch (_) {
             this._logger.error(`OpenAI API (${this._chatmodel}) Failed`)
-            return {role: 'assistant', content: '', name: 'assistant'}
+            return { role: 'assistant', content: '', name: 'assistant' }
         }
     }
-    private async chat_turbo(prompt: IDict<string>[], context: Context) : Promise<IDict<string>> {
+    private async chat_turbo(prompt: IDict<string>[], context: Context): Promise<IDict<string>> {
         const response = await context.http.post(
             this._currentApiUrl('chat/completions'), {
-                model: this._chatmodel,
-                messages: prompt as any,
-                max_tokens: this._nTokens,
-                temperature: this._temperature,
-                presence_penalty: this._presencePenalty,
-                frequency_penalty: this._frequencyPenalty,
-                user: this._name // set user as bot name
-            }, { headers: {
+            model: this._chatmodel,
+            messages: prompt as any,
+            max_tokens: this._nTokens,
+            temperature: this._temperature,
+            presence_penalty: this._presencePenalty,
+            frequency_penalty: this._frequencyPenalty,
+            user: this._name // set user as bot name
+        }, {
+            headers: {
                 'Authorization': `Bearer ${this._openaiKey}`,
                 'Content-Type': 'application/json'
             }
         })
         const msg = response.choices[0].message
-        return {role: msg.role, content: msg.content, name: 'assistant'} // this._name
+        return { role: msg.role, content: msg.content, name: 'assistant' } // this._name
     }
-    private async chat_text(prompt: IDict<string>[], context: Context) : Promise<IDict<string>> {
+    private async chat_text(prompt: IDict<string>[], context: Context): Promise<IDict<string>> {
         const response = await context.http.post(
             this._currentApiUrl('completions'), {
-                model: this._chatmodel,
-                prompt: this.formTextMsg(prompt),
-                stop: '}',
-                max_tokens: this._nTokens,
-                temperature: this._temperature,
-                presence_penalty: this._presencePenalty,
-                frequency_penalty: this._frequencyPenalty,
-                user: this._name // set user as bot name
-            }, { headers: {
+            model: this._chatmodel,
+            prompt: this.formTextMsg(prompt),
+            stop: '}',
+            max_tokens: this._nTokens,
+            temperature: this._temperature,
+            presence_penalty: this._presencePenalty,
+            frequency_penalty: this._frequencyPenalty,
+            user: this._name // set user as bot name
+        }, {
+            headers: {
                 'Authorization': `Bearer ${this._openaiKey}`,
                 'Content-Type': 'application/json'
             }
@@ -155,42 +169,44 @@ export class AI {
             let content = msg.split(',').filter((part) => part.includes('"content":'))[0].split(':')[1].trim()
             if (content[0] === '"') content = content.slice(1)
             if (content[content.length - 1] === '"') content = content.slice(0, content.length - 1)
-            return {role: 'assistant', content: content, name: 'assistant'} as IDict<string> // this._name
+            return { role: 'assistant', content: content, name: 'assistant' } as IDict<string> // this._name
         }
     }
-    public async keys(prompt: string, context: Context) : Promise<string[]> {
+    public async keys(prompt: string, context: Context): Promise<string[]> {
         try {
             const response = await context.http.post(
                 this._currentApiUrl('completions'), {
-                    model: this._keywordmodel,
-                    prompt: prompt,
-                    stop: '\n',
-                    max_tokens: this._nTokens,
-                    temperature: this._temperature,
-                    presence_penalty: this._presencePenalty,
-                    frequency_penalty: this._frequencyPenalty,
-                    user: this._name // set user as bot name
-                }, { headers: {
+                model: this._keywordmodel,
+                prompt: prompt,
+                stop: '\n',
+                max_tokens: this._nTokens,
+                temperature: this._temperature,
+                presence_penalty: this._presencePenalty,
+                frequency_penalty: this._frequencyPenalty,
+                user: this._name // set user as bot name
+            }, {
+                headers: {
                     'Authorization': `Bearer ${this._openaiKey}`,
                     'Content-Type': 'application/json'
                 }
             })
-            let msgs: string[] = response.choices[0].text.replace('，',',').split(',').map(s => s.trim())
+            let msgs: string[] = response.choices[0].text.replace('，', ',').split(',').map(s => s.trim())
             msgs = msgs.filter(s => s.includes('-')).map(s => s.replace('-', '')).filter(s => s.length > 0)
             return msgs
-        } catch (_) { 
+        } catch (_) {
             this._logger.error(`OpenAI API (${this._keywordmodel}) Failed`)
-            return [] 
+            return []
         }
     }
-    public async embed(prompt: string, context: Context) : Promise<number[]> {
+    public async embed(prompt: string, context: Context): Promise<number[]> {
         try {
             const res = await context.http.post(
                 this._currentApiUrl('embeddings'), {
-                    model: this._embedmodel,
-                    input: prompt.trim(),
-                    user: this._name // set user as bot name
-                }, { headers: {
+                model: this._embedmodel,
+                input: prompt.trim(),
+                user: this._name // set user as bot name
+            }, {
+                headers: {
                     'Authorization': `Bearer ${this._openaiKey}`,
                     'Content-Type': 'application/json'
                 }
@@ -201,14 +217,15 @@ export class AI {
             return []
         }
     }
-    public async listen(file: string, prompt: string, context: Context) : Promise<string> {
+    public async listen(file: string, prompt: string, context: Context): Promise<string> {
         try {
             const res = await context.http.post(
                 this._currentApiUrl('audio/transcriptions'), {
-                    file: file,
-                    model: this._audiomodel,
-                    prompt: prompt
-                }, { headers: {
+                file: file,
+                model: this._audiomodel,
+                prompt: prompt
+            }, {
+                headers: {
                     'Authorization': `Bearer ${this._openaiKey}`,
                     'Content-Type': 'application/json'
                 }
@@ -219,9 +236,15 @@ export class AI {
             return ''
         }
     }
-    public async code(prompt: string, context: Context) : Promise<string> {
+    public async code(prompt: string, context: Context): Promise<string> {
         // TODO: add support for code completion
         // API Not Released Yet
         return ''
     }
+}
+
+export interface Balance {
+    total_used: number,
+    total_granted: number,
+    total_available: number,
 }

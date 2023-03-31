@@ -24,6 +24,7 @@ export declare class AI {
     private _listModels;
     private _updateModels;
     private formTextMsg;
+    getBalance(context: Context): Promise<Balance>;
     chat(prompt: IDict<string>[], context: Context): Promise<IDict<string>>;
     private chat_turbo;
     private chat_text;
@@ -31,4 +32,9 @@ export declare class AI {
     embed(prompt: string, context: Context): Promise<number[]>;
     listen(file: string, prompt: string, context: Context): Promise<string>;
     code(prompt: string, context: Context): Promise<string>;
+}
+export interface Balance {
+    total_used: number;
+    total_granted: number;
+    total_available: number;
 }

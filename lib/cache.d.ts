@@ -13,6 +13,7 @@ export declare class Cache {
     update(config: Config): boolean;
     push(name: string, msg: IDict<string>): void;
     get(name: string): IDict<string>[];
+    remove(name: string): void;
     save(): void;
     load(): void;
 }

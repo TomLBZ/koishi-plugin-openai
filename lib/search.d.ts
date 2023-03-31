@@ -4,7 +4,6 @@ export declare class Search {
     mode: string;
     private _logger;
     private _islog;
-    private _googleSearchAdress;
     private _azureKey;
     private _azureRegion;
     constructor();

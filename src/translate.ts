@@ -18,6 +18,8 @@ export class Translate {
     private async testTransl(context: Context) : Promise<boolean> {
         const url = 'https://translate.google.com/translate_a/single?client=gtx&sl=auto&tl=zh-CN&dt=t&q=Who+is+Tom'
         try {
+            let test = await context.http.head(url)
+            if (Object.keys(test).length < 1) return false           
             const res = await context.http.get<Response>(url) //fetch(url)
             return res[0][0].length > 0
         } catch (_) { return false }

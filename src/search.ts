@@ -8,7 +8,7 @@ export class Search {
     public mode: string
     private _logger: Logger
     private _islog: boolean
-    private _googleSearchAdress: string
+    //private _googleSearchAdress: string
     private _azureKey: string
     private _azureRegion: string
     constructor() { }
@@ -18,21 +18,20 @@ export class Search {
         this._islog = config.isLog
         this._azureKey = config.azureSearchKey
         this._azureRegion = config.azureSearchRegion
-        this._googleSearchAdress = config.googleSearchAdress
         this.mode = await this.testSearch(context) ? 'Google' : this._azureKey ? 'Bing' : 'Baidu'
     }
 
     private _currentGoogleSearchBaseUrl(): string {
-        if (this._googleSearchAdress == null) {
-            return "https://www.google.com"
-        }
         return "https://www.google.com"
         // return this._googleSearchAdress
     }
 
     private async testSearch(context: Context): Promise<boolean> {
+        
         const url = this._currentGoogleSearchBaseUrl() + '/search?q=Who+is+Tom'
         try {
+            let test = await context.http.head(url)
+            if (Object.keys(test).length < 1) return false
             const res = await context.http.get(url) //fetch(url)
             return String(res).includes('<!doctype html>')
         } catch (_) { return false }
@@ -184,28 +183,39 @@ export class Search {
         }
     }
     private async baiduSearch(query: string, topk: number, context: Context): Promise<string[]> {
-        try {
-            const encodedQuery = encodeURIComponent(query);
-            const url = `https://www.bing.com/search?q=${encodedQuery}`;
-
-            const resp = await context.http.get<Response>(url)
-            const text = await resp.text()
-
-            const dom = new JSDOM(text);
-
-            let res = [];
-            const listItems = dom.window.document.querySelectorAll('.b_algo');
-
-            for (const item of listItems) {
-                const desc = item.querySelector('.b_caption p')?.textContent?.trim() || '';
-
-                res.push(
-                    desc
-                );
+        const requestConfig = (keyword: string) => {
+            return {
+                params: {
+                    wd: keyword,
+                },
+                headers: {
+                    'User-Agent': "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.110 Safari/537.36",
+                    'Referer': "https://www.baidu.com/s?ie=utf-8&f=8&rsv_bp=1&rsv_idx=2&ch=&tn=baiduhome_pg&bar=&wd=123&oq=123&rsv_pq=896f886f000184f4&rsv_t=fdd2CqgBgjaepxfhicpCfrqeWVSXu9DOQY5WyyWqQYmsKOC%2Fl286S248elzxl%2BJhOKe2&rqlang=cn",
+                    'Accept': "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
+                    'Accept-Language': "en-US,en;q=0.9,zh-CN;q=0.8,zh;q=0.7",
+                    'Sec-Fetch-Mode': "navigate",
+                    'Connection': "Keep-Alive"
+                }
             }
+        }
 
-            res = res.slice(0, topk)
-            return res.length ? res : [];
+        try {
+            const response = await context.http.get('https://www.baidu.com/s', requestConfig(query));
+            const dom = new JSDOM(String(response)).window.document as Document;
+            const main = dom.querySelector('#content_left');
+            if (main === null) {
+                return [];
+            }
+            const searchResult: string[] = [];
+            const tobeRemoved = main.querySelectorAll('script,noscript,style,meta,button,input,img,svg,canvas,header,footer,video,audio,embed');
+            tobeRemoved.forEach(item => item.remove());
+            for (let item of main.children) {
+                const p = item.querySelector('.content-right_8Zs40');
+                searchResult.push(p?.textContent ?? '');
+            }
+            return searchResult.filter((item) => item.trim() !== '')
+                .map(item => item.trim())
+                .slice(0, topk);
         } catch (error) {
             this._logger.error(error);
             this._logger.error('Error: Baidu Search Failed')
