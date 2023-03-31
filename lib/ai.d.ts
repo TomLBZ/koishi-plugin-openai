@@ -1,6 +1,6 @@
-import { Context } from 'koishi';
-import { Config } from './config';
-import { IDict } from './types';
+import { Context } from "koishi";
+import { Config } from "./config";
+import { Balance, IDict } from "./types";
 export declare class AI {
     private _islog;
     private _name;
@@ -32,9 +32,4 @@ export declare class AI {
     embed(prompt: string, context: Context): Promise<number[]>;
     listen(file: string, prompt: string, context: Context): Promise<string>;
     code(prompt: string, context: Context): Promise<string>;
-}
-export interface Balance {
-    total_used: number;
-    total_granted: number;
-    total_available: number;
 }

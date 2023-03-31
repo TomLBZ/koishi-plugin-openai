@@ -27,6 +27,7 @@ export interface Config {
     cacheSize: number;
     cacheSaveInterval: number;
     cacheSaveDir: string;
+    searchOnWeb: boolean;
     azureSearchKey: string;
     azureSearchRegion: string;
     searchTopK: number;

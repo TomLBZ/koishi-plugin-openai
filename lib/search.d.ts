@@ -1,5 +1,5 @@
-import { Context } from 'koishi';
-import { Config } from './config';
+import { Context } from "koishi";
+import { Config } from "./config";
 export declare class Search {
     mode: string;
     private _logger;
@@ -8,7 +8,6 @@ export declare class Search {
     private _azureRegion;
     constructor();
     init(config: Config, context: Context, parentName?: string): Promise<void>;
-    private _currentGoogleSearchBaseUrl;
     private testSearch;
     private _reduceElement;
     private _getCommonClassName;

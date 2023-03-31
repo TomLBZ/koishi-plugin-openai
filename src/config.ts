@@ -34,6 +34,7 @@ export interface Config {
     cacheSaveInterval: number
     cacheSaveDir: string
     // needed by the search
+    searchOnWeb: boolean
     azureSearchKey: string
     azureSearchRegion: string
     searchTopK: number
@@ -98,6 +99,7 @@ export const Config: Schema<Config> = Schema.intersect([
         azureTranslateRegion: Schema.string().description('Bing翻译API的地区（如eastasia）').default('global'),
     }).description('WolframAlpha（可选，用于提高回答正确性）'),
     Schema.object({
+        searchOnWeb: Schema.boolean().description('是否启用网络搜索').default(true),
         searchTopK: Schema.number().description('参考结果数量（1~3）')
         .min(1).max(3).step(1).default(1),
         azureSearchKey: Schema.string().role('secret').description('填写则即启用Bing搜索提供网络信息，留空则启用google搜索。若两者都不可用，会尝试使用百度搜索。'),
