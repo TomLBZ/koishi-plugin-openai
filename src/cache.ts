@@ -49,10 +49,6 @@ export class Cache {
     public get(name: string): IDict<string>[] {
         return this._cache.get(name)
     }
-    public remove(name:string) {
-        this._cache.set(name, [])
-    }
-
     public save() {
         if (!existsSync(this._cacheSaveDir)) mkdirSync(this._cacheSaveDir)
         const str = JSON.stringify(Object.fromEntries(this._cache))

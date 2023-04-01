@@ -81,7 +81,7 @@ export class AI {
 
       this._logger.error(
         "Error when listing openai models, Result: " + e.response
-          ? e.response.data
+          ? (e.response ? e.response.data : e)
           : e
       );
 
@@ -162,7 +162,6 @@ export class AI {
     if (baseUrl.indexOf("/v1") != -1) {
       baseUrl = baseUrl.replace("/v1", "");
     }
-
     return await context.http.get(
       `${baseUrl}/dashboard/billing/credit_grants`,
       {

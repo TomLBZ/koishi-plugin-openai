@@ -186,7 +186,7 @@ export function apply(ctx: Context, config: Config) {
     // ======== 打印统计信息 ========
     if (config.isLog) {
       logger.info(
-        `Pinecone: ${t.pinecone}ms, Wolfram: ${t.wolfram}ms, ${soul.searchMode}: ${t.search}ms, OpenAI: ${t.openai}ms, Cache: ${t.cache}ms`
+        `Pinecone: ${t.pinecone}ms, Wolfram: ${t.wolfram}ms, Search(${soul.searchMode}): ${t.search}ms, OpenAI: ${t.openai}ms, Cache: ${t.cache}ms`
       );
       const totaltime = t.pinecone + t.wolfram + t.search + t.openai + t.cache;
       const maxtime = Math.max(
@@ -207,7 +207,7 @@ export function apply(ctx: Context, config: Config) {
   });
 
   ctx
-    .command("balance", "查询余额")
+    .command("balance", "查询API KEY的可用的供API调用的余额")
     .alias("余额")
     .action(async ({ session }) => {
       const balance = await ai.getBalance(ctx);
