@@ -19,7 +19,7 @@ export interface Timing {
 }
 
 export interface Balance {
-  total_used: number;
-  total_granted: number;
-  total_available: number;
+    total_used: number;
+    total_granted: number;
+    total_available: number;
 }
