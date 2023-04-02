@@ -1,5 +1,5 @@
-import { Context } from 'koishi';
-import { Config } from './config';
+import { Context } from "koishi";
+import { Config } from "./config";
 export declare class Search {
     mode: string;
     private _logger;

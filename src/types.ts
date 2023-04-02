@@ -17,3 +17,9 @@ export interface Timing {
     search: number
     cache: number
 }
+
+export interface Balance {
+    total_used: number;
+    total_granted: number;
+    total_available: number;
+}

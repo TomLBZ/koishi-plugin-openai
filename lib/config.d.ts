@@ -1,6 +1,7 @@
 import { Dict, Schema } from 'koishi';
 export interface Config {
     apiKey: string;
+    apiAdress: string;
     chatModel: string;
     keywordModel: string;
     codeModel: string;
@@ -26,6 +27,7 @@ export interface Config {
     cacheSize: number;
     cacheSaveInterval: number;
     cacheSaveDir: string;
+    searchOnWeb: boolean;
     azureSearchKey: string;
     azureSearchRegion: string;
     searchTopK: number;

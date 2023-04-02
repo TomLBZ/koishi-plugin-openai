@@ -50,6 +50,7 @@ export class Soul {
                 if (!desc) throw new Error('Pinecone failed to describe index')
                 if (this._islog) this._logger.info(`Pinecone: ${this._pineconeReg}/${this._pineconeIndex}, Dimension: ${desc}`)
             } catch (e) {
+                this._logger.warn(e)
                 this._logger.warn(`Pinecone failed, please check your API fields or the internet connection [${e}]`)
                 return false
             }

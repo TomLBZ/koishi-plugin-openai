@@ -3,6 +3,7 @@ import {Dict, Schema} from 'koishi'
 export interface Config {
     // used during init only
     apiKey: string
+    apiAdress: string
     chatModel: string
     keywordModel: string
     codeModel: string
@@ -33,6 +34,7 @@ export interface Config {
     cacheSaveInterval: number
     cacheSaveDir: string
     // needed by the search
+    searchOnWeb: boolean
     azureSearchKey: string
     azureSearchRegion: string
     searchTopK: number
@@ -43,6 +45,7 @@ export interface Config {
 export const Config: Schema<Config> = Schema.intersect([
     Schema.object({
         apiKey: Schema.string().required().role('secret').description('OpenAI 的 API Key'),
+        apiAdress: Schema.string().description('请求OpenAI API的地址').default("https://api.openai.com/v1"),
         chatModel: Schema.union([
             'turbo',
             'davinci'
@@ -96,9 +99,10 @@ export const Config: Schema<Config> = Schema.intersect([
         azureTranslateRegion: Schema.string().description('Bing翻译API的地区（如eastasia）').default('global'),
     }).description('WolframAlpha（可选，用于提高回答正确性）'),
     Schema.object({
+        searchOnWeb: Schema.boolean().description('是否启用网络搜索').default(true),
         searchTopK: Schema.number().description('参考结果数量（1~3）')
         .min(1).max(3).step(1).default(1),
-        azureSearchKey: Schema.string().role('secret').description('填写则即启用Bing搜索提供网络信息，留空则启用google搜索。若两者都不可用，搜索功能将无法使用。'),
+        azureSearchKey: Schema.string().role('secret').description('填写则即启用Bing搜索提供网络信息，留空则启用google搜索。若两者都不可用，会尝试使用百度搜索。'),
         azureSearchRegion: Schema.string().description('Bing搜索API的地区（如eastasia）').default('global'),
     }).description('网络搜索（取决于网络状况，用于提高回答广度）'),
 
