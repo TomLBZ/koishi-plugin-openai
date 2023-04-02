@@ -4,16 +4,17 @@
 [![npm](https://img.shields.io/npm/v/@tomlbz/koishi-plugin-openai?style=flat-square)](https://www.npmjs.com/package/@tomlbz/koishi-plugin-openai)
 
 ### 欢迎使用*★,°*:.☆(￣▽￣)/$:*.°★* 
-1. [更新日志](#ver-207-更新日志)
+1. [更新日志](#ver-208-更新日志)
 2. [可能的问题](#你也许要问)
 3. [配置参考](#配置参考)
 4. [与ChatGPT对比](#与chatgpt对比)
 5. [有趣的对话](#有趣的对话)
 
-# Ver 2.0.7 更新日志
+# Ver 2.0.8 更新日志
 1. 修复了 Issue[#35](https://github.com/TomLBZ/koishi-plugin-openai/issues/35)
 2. 添加了 Issue[#27](https://github.com/TomLBZ/koishi-plugin-openai/issues/21)
 3. 添加了 API 可用余额查询
+4. 将随机回复阈值改回以`0.01`为最小步长，方便更精细的控制。
 
 ### Ver 2.0.x 主要新功能
 1. 支持使用`pinecone`向量数据库（可以[免费注册](https://www.pinecone.io/)）存储`长期记忆`，大大提升了记忆范围。（未启用时仅在本地存储短期记忆）（注意！`OpenAI`的`Embeddings`长度为`1536`，所以你的向量数据库创建时的`索引长度（Index Dimensions）`需要是`1536`！否则`Embeddings`保存不全）。相似度算法（`Metric`）请使用默认的`Cosine`。
