@@ -12,7 +12,7 @@
 
 # Ver 2.0.8 更新日志
 1. 修复了 Issue[#35](https://github.com/TomLBZ/koishi-plugin-openai/issues/35)
-2. 添加了 Issue[#27](https://github.com/TomLBZ/koishi-plugin-openai/issues/21)
+2. 添加了 Issue[#27](https://github.com/TomLBZ/koishi-plugin-openai/issues/27)
 3. 添加了 API 可用余额查询
 4. 将随机回复阈值改回以`0.01`为最小步长，方便更精细的控制。
 
