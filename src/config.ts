@@ -119,7 +119,7 @@ export const Config: Schema<Config> = Schema.intersect([
         frequencyPenalty: Schema.number().description('频率惩罚，越高越不易重复出现次数较多的Token（-2~2，每步0.1）')
         .min(-2).max(2).step(0.1).default(0.2),
         randomReplyFrequency: Schema.percent().description('随机回复频率')
-        .min(0).max(1).step(0.1).default(0.2),
+        .min(0).max(1).step(0.01).default(0.2),
     }).description('回复选项'),
 
     Schema.object({

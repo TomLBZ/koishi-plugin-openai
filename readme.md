@@ -4,61 +4,37 @@
 [![npm](https://img.shields.io/npm/v/@tomlbz/koishi-plugin-openai?style=flat-square)](https://www.npmjs.com/package/@tomlbz/koishi-plugin-openai)
 
 ### 欢迎使用*★,°*:.☆(￣▽￣)/$:*.°★* 
-1. [更新日志](#ver-206-更新日志)
+1. [更新日志](#ver-207-更新日志)
 2. [可能的问题](#你也许要问)
 3. [配置参考](#配置参考)
 4. [与ChatGPT对比](#与chatgpt对比)
 5. [有趣的对话](#有趣的对话)
 
-# Ver 2.0.6 更新日志
-1. 特化了对`Turbo`模型的支持，显著提升了聊天时插入第三方知识的稳定性。
-2. 优先使用`google`作为搜索和翻译的来源，因为其`质量更高`，尽管需要代理。
-3. `isLog`为真时在`Log`中输出各个模块的计时信息，帮助用户判断用时瓶颈在哪个API。（在开发者这里，`OpenAI`往往占用`60%以上`的调用时间）。
-4. 优化了部分`Prompt`，显著增加了`聊天`的`稳定性`。
-5. 对优先级稍低的`API`，新增了`keywordModel`参数，可以用更便宜、更快速的`API`。推荐使用默认的`curie`系列。模型版本太低时会降低关键词稳定性，经测试，`curie`系列的稳定性和`curbo`系列不相上下。
-6. 在各个API调用的关键位置增加了更有用的报错信息。
-7. 修复了代理节点非英语地区时`testSearch`返回值出错的问题。
-8. 改进了`Pinecone`、`WolframAlpha`、`Bing / Google`的调用逻辑，避免不必要地调用，一定程度上提升了调用速度（但是瓶颈在`OpenAI`，没法子，详见控制台的计时记录）。
-9. 修复了`没有使用Bing API时，中文聊天导致乱码`的问题（Issue[#23](https://github.com/TomLBZ/koishi-plugin-openai/issues/23)）
-10. 修复了`如果代理节点是非英语地区的话testSearch会有问题`的问题（Issue[#21](https://github.com/TomLBZ/koishi-plugin-openai/issues/21)）
-11. 修复了`使用网络搜索时，机器人返回结果更偏向于回答网络搜索结果而不是实际聊天对话`的问题（Issue[#24](https://github.com/TomLBZ/koishi-plugin-openai/issues/24)）
-12. 修复了冷却时间被本来不会触发的消息重置的问题
-13. 修复了偶尔向数据库保存空内容向量的问题
+# Ver 2.0.7 更新日志
+1. 修复了 Issue[#35](https://github.com/TomLBZ/koishi-plugin-openai/issues/35)
+2. 添加了 Issue[#27](https://github.com/TomLBZ/koishi-plugin-openai/issues/21)
+3. 添加了 API 可用余额查询
 
-### Ver 2.0.x 新功能
-1. 支持`gpt-3.5-turbo`模型，并将`turbo`系列模型与其他系列模型的调用方式进行了统一。
-2. 允许在`插件配置-全局设置-基础设置-nickname`中增加任意数量的`昵称`用于触发AI回复。
-3. 添加消息`冷却时间`，防止API调用过于频繁导致出错（API返回一般需要几秒钟）。
-4. 允许在群组中直接`回复/引用`机器人的消息触发AI回复。
-5. 支持使用`pinecone`向量数据库（可以[免费注册](https://www.pinecone.io/)）存储`长期记忆`，大大提升了记忆范围。（未启用时仅在本地存储短期记忆）（注意！`OpenAI`的`Embeddings`长度为`1536`，所以你的向量数据库创建时的`索引长度（Index Dimensions）`需要是`1536`！否则`Embeddings`保存不全）。相似度算法（`Metric`）请使用默认的`Cosine`。
-6. 基于`pinecone`的`关联检索`功能，可以更准确地从听过的话中获取信息。
-7. 提供`WolframAlpha推理模块`来尽可能计算参考答案（可以[免费申请AppID](https://products.wolframalpha.com/api)），可以更好地回答如“`3^99等于几`”、“`sin(x^2)的积分是什么`”、“`一加仑等于多少毫升`”这类问题。需要能访问`Google`（`非API`，可能被限制，需要代理）。如果不行，则需要提供`Bing翻译API`（[免费注册](https://azure.microsoft.com/en-us/pricing/details/cognitive-services/translator/)）。如果两者都不可用，推理模块就只对英语有反应了( ╯□╰ )2333
-8. 利用`google`搜索（`非API`，可能被限制，需要代理）实现`检索模块`，对回答中的`常识性无知`进行规避（可以更好地回答时效性强的问题，比如新闻）。如果不行，可以用`Bing`搜索API（[免费注册](https://www.microsoft.com/en-us/bing/apis/pricing)）。两者都不可用时该功能关闭。
-9. 可以让机器人在群聊中发言回复消息的时候`@发送者`（可选）。
-10. 简化了模型配置项，加载插件时自动选择一类模型中的`最新版`（如选择`turbo`则自动应用`gpt-3.5-turbo`）。
-11. 重构了`记忆`的储存方式，使用`Embeddings`和`文本`形式分别储存`长期记忆`和`短期记忆`，提升了`记忆检索`的效率。
-12. 加长了`max_token`的最大值，以适应更长的回复。（仍然不建议很长，因为`整个`会话一共`4000 token`，各种需要例子的`prompt engineering`以及对话历史占用大量`token`数）
-13. `isLog`为真时在`Log`中输出明显的提示，帮助用户判断是否调用了`计算推理`或者`搜索引擎`。
-14. 修复了有时候`直呼其名`时机器人`无法回复`的问题。
-15. 移除了对`openai`、`pinecone`等库的依赖，全面换用`ctx.http.post/get`等`koishi`的API，以便解决代理问题。
+### Ver 2.0.x 主要新功能
+1. 支持使用`pinecone`向量数据库（可以[免费注册](https://www.pinecone.io/)）存储`长期记忆`，大大提升了记忆范围。（未启用时仅在本地存储短期记忆）（注意！`OpenAI`的`Embeddings`长度为`1536`，所以你的向量数据库创建时的`索引长度（Index Dimensions）`需要是`1536`！否则`Embeddings`保存不全）。相似度算法（`Metric`）请使用默认的`Cosine`。
+2. 基于`pinecone`的`关联检索`功能，可以更准确地从听过的话中获取信息。
+3. 提供`WolframAlpha推理模块`来尽可能计算参考答案（可以[免费申请AppID](https://products.wolframalpha.com/api)），可以更好地回答如“`3^99等于几`”、“`sin(x^2)的积分是什么`”、“`一加仑等于多少毫升`”这类问题。需要能访问`Google`（`非API`，可能被限制，需要代理）。如果不行，则需要提供`Bing翻译API`（[免费注册](https://azure.microsoft.com/en-us/pricing/details/cognitive-services/translator/)）。如果两者都不可用，推理模块就只对英语有反应了( ╯□╰ )2333
+4. 利用`google`搜索（`非API`，可能被限制，需要代理）实现`检索模块`，对回答中的`常识性无知`进行规避（可以更好地回答时效性强的问题，比如新闻）。如果不行，可以用`Bing`搜索API（[免费注册](https://www.microsoft.com/en-us/bing/apis/pricing)）。两者都不可用时使用`Baidu`搜索。注意！***个大搜索引擎的搜索结果的质量参差不齐，有时候会搜到广告***
+5. 简化了模型配置项，加载插件时自动选择一类模型中的`最新版`（如选择`turbo`则自动应用`gpt-3.5-turbo`）。
+6. 重构了`记忆`的储存方式，使用`Embeddings`和`文本`形式分别储存`长期记忆`和`短期记忆`，提升了`记忆检索`的效率。
+7. 移除了对`openai`、`pinecone`等库的依赖，全面换用`ctx.http.post/get`等`koishi`的API，以便解决代理问题。
+8. 改善了Logger的输出，方便调试。
 
 # 你也许要问：
-### 关于“为什么挂了代理一直报错？”
-1. 答：因为你没有配置好代理。详见这个[友情文档](https://github.com/yi03/koishi-plugin-openai-api#%E4%BB%A3%E7%90%86%E9%85%8D%E7%BD%AE)（感谢[@yi03](https://github.com/yi03)），可以帮你设置好代理。
-   1. 代理有问题的话你的错误信息很可能包含`connect ETIMEDOUT`、`handleRequestError`之类字样。
+1. “为什么挂了代理一直报错？”
+   - 答：因为你没有配置好代理。详见这个[友情文档](https://github.com/yi03/koishi-plugin-openai-api#%E4%BB%A3%E7%90%86%E9%85%8D%E7%BD%AE)（感谢[@yi03](https://github.com/yi03)），可以帮你设置好代理。代理有问题的话你的错误信息很可能包含`connect ETIMEDOUT`、`handleRequestError`之类字样。
 
-### 关于“为什么某个功能好像没用？”
-1. 答：因为你没有正确配置相关的功能。详见[配置参考](#配置参考)。
-   1. 比如，如果你的机器人不能准确计算数学问题，原因是你没有配置好[机器人知识配置](#机器人知识配置)，导致`计算推理`功能自动禁用。
-   2. 再比如，如果你的机器人无法有效地联想关键词，原因是你没有配置好[机器人记忆配置](#机器人记忆配置)，导致`长期记忆`功能自动禁用。
+2. “为什么某个功能好像没用？”
+   - 答：因为你没有正确配置相关的功能。详见[配置参考](#配置参考)。
 
-### 关于“为什么实现了这个功能而不是那个功能？”
-1. 为什么不用`百度API`？
-   - 因为开发者在国外根本`无法登录百度API平台`，只能申请个寂寞。况且免费的百度搜索经常导致`Prohibited IP`，所以百度的代码写了一半，就搁置了……(((m -__-)m……
-2. 那为什么不干脆用`Google API`？
-   - 因为不少用户在国内，需要考虑一种`国内国外都可以使用`的API，于是只能`Bing`了……不填API Key的话还会尝试调用`Google`，然而`并非API`所以有可能`受限`或`被墙`导致失败。...┏┛墓┗┓...
 3. 为什么长时间没更新？
    - 开发者`太蔡`了，而且最近忙着搞毕设，没什么时间写代码……///（つ﹏⊂）///……
+   - 如果你有想实现的功能，欢迎PR~
 
 ### 关于产生 AI 回复的几种情况
 1. ta 被`直接呼叫`了（`@名字`，或`回复/引用`其消息，或者聊天时`直呼其名`）
@@ -75,6 +51,7 @@
 | 参数 | 作用 | 取值范围 | 建议值 |
 | --- | --- | --- | --- |
 | apiKey | 调用OpenAI API | - | 填写你的OpenAI API Key |
+| apiAddress | 调用OpenAI API的地址 | - | 填写你的OpenAI API调用地址 |
 | chatModel | 选择`语言模型` | `turbo`<br>`davinci`<br>`babbage`<br>`curie`<br>`ada` | `turbo`是效果最好的 |
 | keywordModel | 选择`关键词模型` | `curie`<br>`babbage`<br>`ada` | `curie`是效果最好的 |
 | codeModel | 选择`代码模型` | `davinci`<br>`cushman` | `davinci`是效果最好的 |
@@ -102,6 +79,7 @@
 | wolframAppId | `wolfram`的`appid`，用于计算 | - | 填写你自己的appid |
 | azureTranslateKey | `Bing`翻译`API`的`密钥`，用于在`Google`不可用时为`wolfram`提供翻译 | - | 填写你自己的API密钥 |
 | azureTranslateRegion | `Bing`翻译`API`的地区，形如`eastasia` | - | 填写你自己的`API`地区，默认是`global` |
+| searchOnWeb | `搜索模块`的`开关` | `true`<br>`false` | 默认开启，视网络情况和具体用例填写 |
 | searchTopK | `搜索模块`的`最大条数`，用于提升知识广度 | `1~3` | 建议`1`，提高则快速消耗`调用次数`且会让AI`分心` |
 | azureSearchKey | `Bing`搜索`API`的`密钥`，用于在`Google`不可用时为`搜索模块`提供搜索 | - | 填写你自己的API密钥 |
 | azureSearchRegion | `Bing`搜索`API`的地区，形如`eastasia` | - | 填写你自己的`API`地区，默认是`global` |
